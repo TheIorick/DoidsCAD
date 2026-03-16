@@ -1,0 +1,4 @@
+C:/Users/kotol/DOIDS/DoidsCAD/build/MSVC_2022_64bit/CMakeFiles/DoidsCAD.dir
+C:/Users/kotol/DOIDS/DoidsCAD/build/MSVC_2022_64bit/CMakeFiles/INSTALL.dir
+C:/Users/kotol/DOIDS/DoidsCAD/build/MSVC_2022_64bit/CMakeFiles/ALL_BUILD.dir
+C:/Users/kotol/DOIDS/DoidsCAD/build/MSVC_2022_64bit/CMakeFiles/ZERO_CHECK.dir

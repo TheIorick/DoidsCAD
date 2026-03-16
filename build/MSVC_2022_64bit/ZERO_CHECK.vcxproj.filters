@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\kotol\DOIDS\DoidsCAD\build\MSVC_2022_64bit\CMakeFiles\b56328d29b1d373e4152653580013cde\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{F7588459-6DC9-33EB-AF86-0BBA453F5252}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
