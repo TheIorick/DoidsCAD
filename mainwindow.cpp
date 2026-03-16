@@ -32,7 +32,7 @@ MainWindow::MainWindow(QWidget *parent)
     createDocks();
 
     setCentralWidget(m_viewport);
-    statusBar()->showMessage(tr("Ready. Next step: connect OpenCascade viewer and STEP actions."));
+    statusBar()->showMessage(tr("OpenCascade viewer is connected. Next step: STEP import/export and project model."));
 }
 
 MainWindow::~MainWindow() {}
@@ -70,9 +70,9 @@ void MainWindow::createActions()
     connect(m_newProjectAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
     connect(m_importStepAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
     connect(m_exportStepAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
-    connect(m_fitViewAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
-    connect(m_wireframeAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
-    connect(m_shadedAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
+    connect(m_fitViewAction, &QAction::triggered, m_viewport, &CadViewport::fitAll);
+    connect(m_wireframeAction, &QAction::triggered, m_viewport, &CadViewport::setWireframeMode);
+    connect(m_shadedAction, &QAction::triggered, m_viewport, &CadViewport::setShadedMode);
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
 }
 

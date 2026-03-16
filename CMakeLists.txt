@@ -24,6 +24,8 @@ set(PROJECT_SOURCES
     cadviewport.h
     mainwindow.cpp
     mainwindow.h
+    occtwindow.cpp
+    occtwindow.h
     operationlistdock.cpp
     operationlistdock.h
     propertyeditordock.cpp
