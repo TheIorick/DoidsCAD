@@ -2,7 +2,9 @@
 #define CADVIEWPORT_H
 
 #include <AIS_InteractiveContext.hxx>
+#include <AIS_Shape.hxx>
 #include <AIS_ViewController.hxx>
+#include <TopoDS_Shape.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
 
@@ -16,6 +18,9 @@ public:
     explicit CadViewport(QWidget *parent = nullptr);
 
     QPaintEngine *paintEngine() const override;
+    bool importStep(const QString &filePath, QString *errorMessage = nullptr);
+    bool exportStep(const QString &filePath, QString *errorMessage = nullptr) const;
+    bool hasShape() const;
 
 public slots:
     void fitAll();
@@ -33,11 +38,13 @@ protected:
 private:
     void initializeViewer();
     void displayStartupShape();
+    void displayShape(const TopoDS_Shape &shape);
 
     Handle(AIS_InteractiveContext) m_context;
     Handle(V3d_Viewer) m_viewer;
     Handle(V3d_View) m_view;
-    Handle(AIS_InteractiveObject) m_startupShape;
+    Handle(AIS_Shape) m_shapePresentation;
+    TopoDS_Shape m_currentShape;
 };
 
 #endif // CADVIEWPORT_H

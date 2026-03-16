@@ -6,8 +6,14 @@
 #include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <IFSelect_ReturnStatus.hxx>
+#include <Interface_Static.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
+#include <STEPControl_Reader.hxx>
+#include <STEPControl_Writer.hxx>
+#include <Standard_Failure.hxx>
+#include <TopAbs_ShapeEnum.hxx>
 #include <QGuiApplication>
 #include <QMouseEvent>
 #include <QPaintEngine>
@@ -74,6 +80,90 @@ QPaintEngine *CadViewport::paintEngine() const
     return nullptr;
 }
 
+bool CadViewport::importStep(const QString &filePath, QString *errorMessage)
+{
+    STEPControl_Reader reader;
+    const IFSelect_ReturnStatus readStatus = reader.ReadFile(filePath.toStdString().c_str());
+
+    if (readStatus != IFSelect_RetDone)
+    {
+        if (errorMessage != nullptr)
+            *errorMessage = tr("OpenCascade could not read the STEP file.");
+
+        return false;
+    }
+
+    const Standard_Integer roots = reader.TransferRoots();
+    if (roots <= 0)
+    {
+        if (errorMessage != nullptr)
+            *errorMessage = tr("The STEP file does not contain transferable shapes.");
+
+        return false;
+    }
+
+    const TopoDS_Shape importedShape = reader.OneShape();
+    if (importedShape.IsNull())
+    {
+        if (errorMessage != nullptr)
+            *errorMessage = tr("The imported STEP model is empty.");
+
+        return false;
+    }
+
+    displayShape(importedShape);
+    return true;
+}
+
+bool CadViewport::exportStep(const QString &filePath, QString *errorMessage) const
+{
+    if (m_currentShape.IsNull())
+    {
+        if (errorMessage != nullptr)
+            *errorMessage = tr("There is no shape to export.");
+
+        return false;
+    }
+
+    try
+    {
+        STEPControl_Writer writer;
+        Interface_Static::SetCVal("write.step.schema", "AP203");
+
+        const IFSelect_ReturnStatus transferStatus = writer.Transfer(m_currentShape, STEPControl_AsIs);
+        if (transferStatus != IFSelect_RetDone)
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = tr("OpenCascade could not prepare the shape for STEP export.");
+
+            return false;
+        }
+
+        const IFSelect_ReturnStatus writeStatus = writer.Write(filePath.toStdString().c_str());
+        if (writeStatus != IFSelect_RetDone)
+        {
+            if (errorMessage != nullptr)
+                *errorMessage = tr("OpenCascade could not write the STEP file.");
+
+            return false;
+        }
+    }
+    catch (const Standard_Failure &failure)
+    {
+        if (errorMessage != nullptr)
+            *errorMessage = QString::fromLocal8Bit(failure.GetMessageString());
+
+        return false;
+    }
+
+    return true;
+}
+
+bool CadViewport::hasShape() const
+{
+    return !m_currentShape.IsNull();
+}
+
 void CadViewport::fitAll()
 {
     if (m_view.IsNull())
@@ -86,18 +176,18 @@ void CadViewport::fitAll()
 
 void CadViewport::setWireframeMode()
 {
-    if (m_context.IsNull() || m_startupShape.IsNull())
+    if (m_context.IsNull() || m_shapePresentation.IsNull())
         return;
 
-    m_context->SetDisplayMode(m_startupShape, AIS_WireFrame, Standard_True);
+    m_context->SetDisplayMode(m_shapePresentation, AIS_WireFrame, Standard_True);
 }
 
 void CadViewport::setShadedMode()
 {
-    if (m_context.IsNull() || m_startupShape.IsNull())
+    if (m_context.IsNull() || m_shapePresentation.IsNull())
         return;
 
-    m_context->SetDisplayMode(m_startupShape, AIS_Shaded, Standard_True);
+    m_context->SetDisplayMode(m_shapePresentation, AIS_Shaded, Standard_True);
 }
 
 void CadViewport::resizeEvent(QResizeEvent *event)
@@ -180,9 +270,16 @@ void CadViewport::initializeViewer()
 
 void CadViewport::displayStartupShape()
 {
-    Handle(AIS_Shape) shape = new AIS_Shape(BRepPrimAPI_MakeBox(120.0, 80.0, 60.0).Shape());
-    m_startupShape = shape;
+    displayShape(BRepPrimAPI_MakeBox(120.0, 80.0, 60.0).Shape());
+}
 
-    m_context->Display(shape, AIS_Shaded, 0, Standard_False);
+void CadViewport::displayShape(const TopoDS_Shape &shape)
+{
+    if (!m_shapePresentation.IsNull())
+        m_context->Remove(m_shapePresentation, Standard_False);
+
+    m_currentShape = shape;
+    m_shapePresentation = new AIS_Shape(shape);
+    m_context->Display(m_shapePresentation, AIS_Shaded, 0, Standard_False);
     fitAll();
 }

@@ -18,6 +18,8 @@ public:
 
 private slots:
     void showNotImplementedMessage();
+    void importStep();
+    void exportStep();
 
 private:
     void createActions();

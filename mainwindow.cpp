@@ -5,6 +5,7 @@
 #include "propertyeditordock.h"
 
 #include <QAction>
+#include <QFileDialog>
 #include <QKeySequence>
 #include <QMenu>
 #include <QMenuBar>
@@ -49,6 +50,61 @@ void MainWindow::showNotImplementedMessage()
             .arg(actionName));
 }
 
+void MainWindow::importStep()
+{
+    const QString filePath = QFileDialog::getOpenFileName(
+        this,
+        tr("Import STEP"),
+        QString(),
+        tr("STEP Files (*.step *.stp)"));
+
+    if (filePath.isEmpty())
+        return;
+
+    QString errorMessage;
+    if (!m_viewport->importStep(filePath, &errorMessage))
+    {
+        QMessageBox::critical(this, tr("STEP Import Failed"), errorMessage);
+        return;
+    }
+
+    statusBar()->showMessage(tr("Imported STEP: %1").arg(filePath), 5000);
+}
+
+void MainWindow::exportStep()
+{
+    if (!m_viewport->hasShape())
+    {
+        QMessageBox::information(this, tr("Export STEP"), tr("There is no model to export."));
+        return;
+    }
+
+    const QString filePath = QFileDialog::getSaveFileName(
+        this,
+        tr("Export STEP"),
+        QString(),
+        tr("STEP Files (*.step *.stp)"));
+
+    if (filePath.isEmpty())
+        return;
+
+    QString normalizedPath = filePath;
+    if (!normalizedPath.endsWith(".step", Qt::CaseInsensitive)
+        && !normalizedPath.endsWith(".stp", Qt::CaseInsensitive))
+    {
+        normalizedPath += ".step";
+    }
+
+    QString errorMessage;
+    if (!m_viewport->exportStep(normalizedPath, &errorMessage))
+    {
+        QMessageBox::critical(this, tr("STEP Export Failed"), errorMessage);
+        return;
+    }
+
+    statusBar()->showMessage(tr("Exported STEP: %1").arg(normalizedPath), 5000);
+}
+
 void MainWindow::createActions()
 {
     m_newProjectAction = new QAction(tr("New Project"), this);
@@ -68,8 +124,8 @@ void MainWindow::createActions()
     m_shadedAction = new QAction(tr("Shaded"), this);
 
     connect(m_newProjectAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
-    connect(m_importStepAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
-    connect(m_exportStepAction, &QAction::triggered, this, &MainWindow::showNotImplementedMessage);
+    connect(m_importStepAction, &QAction::triggered, this, &MainWindow::importStep);
+    connect(m_exportStepAction, &QAction::triggered, this, &MainWindow::exportStep);
     connect(m_fitViewAction, &QAction::triggered, m_viewport, &CadViewport::fitAll);
     connect(m_wireframeAction, &QAction::triggered, m_viewport, &CadViewport::setWireframeMode);
     connect(m_shadedAction, &QAction::triggered, m_viewport, &CadViewport::setShadedMode);
