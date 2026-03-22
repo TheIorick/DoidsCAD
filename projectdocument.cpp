@@ -1,6 +1,6 @@
 #include "projectdocument.h"
 
-#include <BRepPrimAPI_MakeBox.hxx>
+#include "projectbuilder.h"
 
 ProjectDocument::ProjectDocument()
 {
@@ -9,35 +9,46 @@ ProjectDocument::ProjectDocument()
 
 void ProjectDocument::reset()
 {
-    m_shape = BRepPrimAPI_MakeBox(120.0, 80.0, 60.0).Shape();
-    m_description = QStringLiteral("Startup box");
+    m_importedShapeSnapshot.Nullify();
     initializeStartupProject();
+    rebuild();
 }
 
 void ProjectDocument::setShape(const TopoDS_Shape &shape, const QString &description)
 {
-    m_shape = shape;
-    m_description = description;
+    m_importedShapeSnapshot = shape;
     m_project.clear();
     m_project.addOperation(QStringLiteral("import_step"),
                            QStringLiteral("Import STEP"),
                            QStringLiteral("Done"),
                            {{QStringLiteral("Source"), description}});
+    rebuild();
+}
+
+bool ProjectDocument::rebuild()
+{
+    m_buildResult = ProjectBuilder::build(m_project, m_importedShapeSnapshot);
+    return m_buildResult.success;
 }
 
 const TopoDS_Shape &ProjectDocument::shape() const
 {
-    return m_shape;
+    return m_buildResult.shape;
 }
 
 bool ProjectDocument::hasShape() const
 {
-    return !m_shape.IsNull();
+    return m_buildResult.success && !m_buildResult.shape.IsNull();
 }
 
 QString ProjectDocument::description() const
 {
-    return m_description;
+    return m_buildResult.description;
+}
+
+QString ProjectDocument::lastBuildError() const
+{
+    return m_buildResult.errorMessage;
 }
 
 const ProjectModel &ProjectDocument::project() const

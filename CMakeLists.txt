@@ -20,6 +20,7 @@ find_package(OpenCASCADE COMPONENTS Visualization REQUIRED)
 
 set(PROJECT_SOURCES
     main.cpp
+    buildresult.h
     cadviewport.cpp
     cadviewport.h
     mainwindow.cpp
@@ -28,6 +29,8 @@ set(PROJECT_SOURCES
     occtwindow.h
     operationlistdock.cpp
     operationlistdock.h
+    projectbuilder.cpp
+    projectbuilder.h
     projectdocument.cpp
     projectdocument.h
     projectmodel.cpp
