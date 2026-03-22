@@ -8,6 +8,7 @@
 #include <BRepBuilderAPI_Transform.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
+#include <Prs3d_LineAspect.hxx>
 #include <Prs3d_Drawer.hxx>
 #include <Quantity_Color.hxx>
 #include <TopAbs_ShapeEnum.hxx>
@@ -113,28 +114,10 @@ void CadViewport::setShape(const TopoDS_Shape &shape)
     if (m_context.IsNull())
         return;
 
-    if (!m_shapePresentation.IsNull())
-        m_context->Remove(m_shapePresentation, Standard_False);
-
     clearHighlightPresentation();
 
     m_currentShape = shape;
-    m_shapePresentation.Nullify();
-
-    if (!shape.IsNull())
-    {
-        m_shapePresentation = new AIS_Shape(shape);
-        applyDisplayMode(m_shapePresentation);
-        m_context->Display(m_shapePresentation, AIS_Shaded, 0, Standard_False);
-    }
-
-    m_context->ClearSelected(Standard_False);
-    updateSelectionDescription();
-
-    if (!shape.IsNull())
-        fitAll();
-    else
-        update();
+    rebuildMainPresentation(true);
 }
 
 void CadViewport::clearShape()
@@ -154,22 +137,20 @@ void CadViewport::fitAll()
 
 void CadViewport::setWireframeMode()
 {
-    if (m_context.IsNull() || m_shapePresentation.IsNull())
+    if (m_context.IsNull())
         return;
 
-    m_surfaceDisplayMode = SurfaceDisplayMode::ShadedWithEdges;
-    applyDisplayMode(m_shapePresentation);
-    update();
+    m_surfaceDisplayMode = SurfaceDisplayMode::Wireframe;
+    rebuildMainPresentation(false);
 }
 
 void CadViewport::setShadedMode()
 {
-    if (m_context.IsNull() || m_shapePresentation.IsNull())
+    if (m_context.IsNull())
         return;
 
     m_surfaceDisplayMode = SurfaceDisplayMode::Shaded;
-    applyDisplayMode(m_shapePresentation);
-    update();
+    rebuildMainPresentation(false);
 }
 
 void CadViewport::setFrontView()
@@ -417,7 +398,11 @@ void CadViewport::updatePlacementPreview(const double x, const double y, const d
     m_previewPresentation = new AIS_Shape(previewShape);
     m_previewPresentation->SetColor(Quantity_NOC_GREEN);
     m_previewPresentation->SetTransparency(0.35f);
-    applyDisplayMode(m_previewPresentation);
+    m_previewPresentation->SetDisplayMode(AIS_Shaded);
+    m_previewPresentation->Attributes()->SetFaceBoundaryDraw(Standard_True);
+    m_previewPresentation->Attributes()->SetupOwnFaceBoundaryAspect();
+    m_previewPresentation->Attributes()->FaceBoundaryAspect()->SetColor(Quantity_NOC_BLACK);
+    m_previewPresentation->SynchronizeAspects();
     m_context->Display(m_previewPresentation, AIS_Shaded, 2, Standard_False);
     update();
 }
@@ -427,16 +412,51 @@ void CadViewport::applyDisplayMode(const Handle(AIS_Shape) &presentation) const
     if (presentation.IsNull())
         return;
 
-    presentation->SetDisplayMode(AIS_Shaded);
-    presentation->Attributes()->SetFaceBoundaryDraw(m_surfaceDisplayMode == SurfaceDisplayMode::ShadedWithEdges);
-
-    if (m_surfaceDisplayMode == SurfaceDisplayMode::ShadedWithEdges)
+    if (m_surfaceDisplayMode == SurfaceDisplayMode::Wireframe)
     {
-        presentation->Attributes()->SetupOwnFaceBoundaryAspect();
-        presentation->Attributes()->FaceBoundaryAspect()->SetColor(Quantity_NOC_BLACK);
+        presentation->SetDisplayMode(AIS_WireFrame);
+        presentation->Attributes()->SetFaceBoundaryDraw(Standard_False);
+        presentation->Attributes()->SetWireAspect(
+            new Prs3d_LineAspect(Quantity_NOC_DODGERBLUE4, Aspect_TOL_SOLID, 2.5));
+        presentation->SetColor(Quantity_NOC_DODGERBLUE4);
+    }
+    else
+    {
+        presentation->SetDisplayMode(AIS_Shaded);
+        presentation->Attributes()->SetFaceBoundaryDraw(Standard_False);
+        presentation->UnsetColor();
     }
 
     presentation->SynchronizeAspects();
+}
+
+void CadViewport::rebuildMainPresentation(const bool fitView)
+{
+    if (m_context.IsNull())
+        return;
+
+    if (!m_shapePresentation.IsNull())
+        m_context->Remove(m_shapePresentation, Standard_False);
+
+    m_shapePresentation.Nullify();
+
+    if (!m_currentShape.IsNull())
+    {
+        m_shapePresentation = new AIS_Shape(m_currentShape);
+        applyDisplayMode(m_shapePresentation);
+        const AIS_DisplayMode displayMode = m_surfaceDisplayMode == SurfaceDisplayMode::Wireframe
+                                                ? AIS_WireFrame
+                                                : AIS_Shaded;
+        m_context->Display(m_shapePresentation, displayMode, 0, Standard_False);
+    }
+
+    m_context->ClearSelected(Standard_False);
+    updateSelectionDescription();
+
+    if (!m_currentShape.IsNull() && fitView)
+        fitAll();
+    else
+        update();
 }
 
 bool CadViewport::tryPickPlacementPoint(const QPointF &position, double *x, double *y, double *z) const

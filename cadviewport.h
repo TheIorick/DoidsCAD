@@ -53,7 +53,7 @@ private:
     enum class SurfaceDisplayMode
     {
         Shaded,
-        ShadedWithEdges
+        Wireframe
     };
 
     void initializeViewer();
@@ -63,6 +63,7 @@ private:
     void clearPreviewPresentation();
     void updatePlacementPreview(double x, double y, double z);
     void applyDisplayMode(const Handle(AIS_Shape) &presentation) const;
+    void rebuildMainPresentation(bool fitView);
     bool tryPickPlacementPoint(const QPointF &position, double *x, double *y, double *z) const;
 
     Handle(AIS_InteractiveContext) m_context;
