@@ -1,6 +1,7 @@
 #include "propertyeditordock.h"
 
 #include <QAbstractItemView>
+#include <QComboBox>
 #include <QHeaderView>
 #include <QTableWidget>
 #include <QTableWidgetItem>
@@ -44,9 +45,12 @@ void PropertyEditorDock::setSelectionDescription(const QString &description)
     selectionValueItem->setText(description);
 }
 
-void PropertyEditorDock::showOperationDetails(const OperationEntry *operation)
+void PropertyEditorDock::showOperationDetails(const OperationEntry *operation, const QVector<OperationEntry> &allOperations)
 {
     m_isUpdating = true;
+    for (int row = 0; row < m_tableWidget->rowCount(); ++row)
+        m_tableWidget->removeCellWidget(row, 1);
+
     m_tableWidget->clearContents();
 
     if (operation == nullptr)
@@ -113,13 +117,42 @@ void PropertyEditorDock::showOperationDetails(const OperationEntry *operation)
         auto *nameItem = new QTableWidgetItem(parameter.name);
         nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
         m_tableWidget->setItem(3 + i, 0, nameItem);
-        auto *valueItem = new QTableWidgetItem(parameter.value.toString());
-        if (operation->type != QLatin1String("box")
-            && operation->type != QLatin1String("cylinder")
-            && operation->type != QLatin1String("fuse"))
-            valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
 
-        m_tableWidget->setItem(3 + i, 1, valueItem);
+        const bool isFuseReference = operation->type == QLatin1String("fuse")
+                                     && (parameter.name == QLatin1String("LeftId")
+                                         || parameter.name == QLatin1String("RightId"));
+        if (isFuseReference)
+        {
+            auto *comboBox = new QComboBox(m_tableWidget);
+            for (const OperationEntry &candidate : allOperations)
+            {
+                if (candidate.id == operation->id || candidate.type == QLatin1String("fuse"))
+                    continue;
+
+                comboBox->addItem(QStringLiteral("#%1 %2").arg(candidate.id).arg(candidate.label), candidate.id);
+            }
+
+            const int comboIndex = comboBox->findData(parameter.value);
+            if (comboIndex >= 0)
+                comboBox->setCurrentIndex(comboIndex);
+
+            connect(comboBox,
+                    &QComboBox::currentIndexChanged,
+                    this,
+                    [this, operation, comboBox, parameterName = parameter.name](int) {
+                        handleOperationReferenceChanged(operation->id, parameterName, comboBox);
+                    });
+            m_tableWidget->setCellWidget(3 + i, 1, comboBox);
+        }
+        else
+        {
+            auto *valueItem = new QTableWidgetItem(parameter.value.toString());
+            if (operation->type != QLatin1String("box")
+                && operation->type != QLatin1String("cylinder"))
+                valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
+
+            m_tableWidget->setItem(3 + i, 1, valueItem);
+        }
     }
 
     m_isUpdating = false;
@@ -141,4 +174,14 @@ void PropertyEditorDock::handleCellChanged(const int row, const int column)
         return;
 
     emit operationParameterEdited(m_currentOperationId, nameItem->text(), numericValue);
+}
+
+void PropertyEditorDock::handleOperationReferenceChanged(const int operationId,
+                                                         const QString &name,
+                                                         QComboBox *comboBox)
+{
+    if (m_isUpdating || comboBox == nullptr)
+        return;
+
+    emit operationParameterEdited(operationId, name, comboBox->currentData());
 }

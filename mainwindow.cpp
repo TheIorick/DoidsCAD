@@ -185,7 +185,8 @@ void MainWindow::showOperationDetails(const int operationId)
 {
     m_selectedOperationId = operationId;
     refreshDisplayedShape();
-    m_propertyDock->showOperationDetails(m_projectDocument->findOperation(operationId));
+    m_propertyDock->showOperationDetails(m_projectDocument->findOperation(operationId),
+                                         m_projectDocument->project().operations());
 
     if (operationId >= 0)
         statusBar()->showMessage(tr("Operation #%1 selected").arg(operationId), 3000);

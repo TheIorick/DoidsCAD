@@ -5,6 +5,7 @@
 
 #include <QDockWidget>
 
+class QComboBox;
 class QTableWidget;
 
 class PropertyEditorDock : public QDockWidget
@@ -14,13 +15,14 @@ class PropertyEditorDock : public QDockWidget
 public:
     explicit PropertyEditorDock(QWidget *parent = nullptr);
     void setSelectionDescription(const QString &description);
-    void showOperationDetails(const OperationEntry *operation);
+    void showOperationDetails(const OperationEntry *operation, const QVector<OperationEntry> &allOperations);
 
 signals:
     void operationParameterEdited(int operationId, const QString &name, const QVariant &value);
 
 private:
     void handleCellChanged(int row, int column);
+    void handleOperationReferenceChanged(int operationId, const QString &name, QComboBox *comboBox);
 
     QTableWidget *m_tableWidget;
     int m_currentOperationId;
