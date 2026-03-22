@@ -17,6 +17,7 @@ public:
                      const QVector<OperationParameter> &parameters = {});
 
     const QVector<OperationEntry> &operations() const;
+    const OperationEntry *findOperation(int id) const;
 
 private:
     QVector<OperationEntry> m_operations;

@@ -29,3 +29,14 @@ const QVector<OperationEntry> &ProjectModel::operations() const
 {
     return m_operations;
 }
+
+const OperationEntry *ProjectModel::findOperation(const int id) const
+{
+    for (const OperationEntry &operation : m_operations)
+    {
+        if (operation.id == id)
+            return &operation;
+    }
+
+    return nullptr;
+}

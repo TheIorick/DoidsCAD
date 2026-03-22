@@ -45,6 +45,11 @@ const ProjectModel &ProjectDocument::project() const
     return m_project;
 }
 
+const OperationEntry *ProjectDocument::findOperation(const int id) const
+{
+    return m_project.findOperation(id);
+}
+
 void ProjectDocument::initializeStartupProject()
 {
     m_project.clear();

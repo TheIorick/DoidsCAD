@@ -15,7 +15,12 @@ public:
     explicit OperationListDock(QWidget *parent = nullptr);
     void setOperations(const QVector<OperationEntry> &operations);
 
+signals:
+    void operationSelected(int operationId);
+
 private:
+    void handleCurrentItemChanged();
+
     QTreeWidget *m_treeWidget;
 };
 

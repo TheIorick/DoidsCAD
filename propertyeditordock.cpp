@@ -38,3 +38,38 @@ void PropertyEditorDock::setSelectionDescription(const QString &description)
 
     selectionValueItem->setText(description);
 }
+
+void PropertyEditorDock::showOperationDetails(const OperationEntry *operation)
+{
+    m_tableWidget->clearContents();
+
+    if (operation == nullptr)
+    {
+        m_tableWidget->setRowCount(4);
+        m_tableWidget->setItem(0, 0, new QTableWidgetItem(tr("Selection")));
+        m_tableWidget->setItem(0, 1, new QTableWidgetItem(tr("None")));
+        m_tableWidget->setItem(1, 0, new QTableWidgetItem(tr("Format")));
+        m_tableWidget->setItem(1, 1, new QTableWidgetItem(tr("STEP")));
+        m_tableWidget->setItem(2, 0, new QTableWidgetItem(tr("Compiler")));
+        m_tableWidget->setItem(2, 1, new QTableWidgetItem(tr("MSVC")));
+        m_tableWidget->setItem(3, 0, new QTableWidgetItem(tr("Viewer")));
+        m_tableWidget->setItem(3, 1, new QTableWidgetItem(tr("OpenCascade")));
+        return;
+    }
+
+    const int rowCount = 3 + operation->parameters.size();
+    m_tableWidget->setRowCount(rowCount);
+    m_tableWidget->setItem(0, 0, new QTableWidgetItem(tr("Operation")));
+    m_tableWidget->setItem(0, 1, new QTableWidgetItem(operation->label));
+    m_tableWidget->setItem(1, 0, new QTableWidgetItem(tr("Type")));
+    m_tableWidget->setItem(1, 1, new QTableWidgetItem(operation->type));
+    m_tableWidget->setItem(2, 0, new QTableWidgetItem(tr("State")));
+    m_tableWidget->setItem(2, 1, new QTableWidgetItem(operation->state));
+
+    for (int i = 0; i < operation->parameters.size(); ++i)
+    {
+        const OperationParameter &parameter = operation->parameters.at(i);
+        m_tableWidget->setItem(3 + i, 0, new QTableWidgetItem(parameter.name));
+        m_tableWidget->setItem(3 + i, 1, new QTableWidgetItem(parameter.value.toString()));
+    }
+}

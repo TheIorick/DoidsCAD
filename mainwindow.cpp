@@ -132,6 +132,14 @@ void MainWindow::updateSelectionDescription(const QString &description)
     statusBar()->showMessage(tr("Selection: %1").arg(description), 3000);
 }
 
+void MainWindow::showOperationDetails(const int operationId)
+{
+    m_propertyDock->showOperationDetails(m_projectDocument->findOperation(operationId));
+
+    if (operationId >= 0)
+        statusBar()->showMessage(tr("Operation #%1 selected").arg(operationId), 3000);
+}
+
 void MainWindow::refreshViewport()
 {
     if (m_projectDocument->hasShape())
@@ -180,6 +188,7 @@ void MainWindow::createActions()
     connect(m_rightViewAction, &QAction::triggered, m_viewport, &CadViewport::setRightView);
     connect(m_isometricViewAction, &QAction::triggered, m_viewport, &CadViewport::setIsometricView);
     connect(m_viewport, &CadViewport::selectionDescriptionChanged, this, &MainWindow::updateSelectionDescription);
+    connect(m_operationDock, &OperationListDock::operationSelected, this, &MainWindow::showOperationDetails);
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
 }
 

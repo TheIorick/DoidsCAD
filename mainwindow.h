@@ -22,6 +22,7 @@ private slots:
     void showNotImplementedMessage();
     void importStep();
     void exportStep();
+    void showOperationDetails(int operationId);
     void updateSelectionDescription(const QString &description);
 
 private:

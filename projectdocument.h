@@ -19,6 +19,7 @@ public:
     bool hasShape() const;
     QString description() const;
     const ProjectModel &project() const;
+    const OperationEntry *findOperation(int id) const;
 
 private:
     void initializeStartupProject();

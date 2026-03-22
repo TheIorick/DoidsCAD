@@ -12,6 +12,7 @@ OperationListDock::OperationListDock(QWidget *parent)
     m_treeWidget->header()->setStretchLastSection(false);
     m_treeWidget->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_treeWidget->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    connect(m_treeWidget, &QTreeWidget::itemSelectionChanged, this, &OperationListDock::handleCurrentItemChanged);
 
     setWidget(m_treeWidget);
 }
@@ -25,6 +26,7 @@ void OperationListDock::setOperations(const QVector<OperationEntry> &operations)
     {
         const QString title = tr("#%1 %2").arg(operation.id).arg(operation.label);
         auto *operationItem = new QTreeWidgetItem(rootItem, {title, operation.state});
+        operationItem->setData(0, Qt::UserRole, operation.id);
 
         for (const OperationParameter &parameter : operation.parameters)
         {
@@ -37,4 +39,18 @@ void OperationListDock::setOperations(const QVector<OperationEntry> &operations)
     }
 
     rootItem->setExpanded(true);
+}
+
+void OperationListDock::handleCurrentItemChanged()
+{
+    const QTreeWidgetItem *item = m_treeWidget->currentItem();
+    if (item == nullptr)
+    {
+        emit operationSelected(-1);
+        return;
+    }
+
+    bool ok = false;
+    const int operationId = item->data(0, Qt::UserRole).toInt(&ok);
+    emit operationSelected(ok ? operationId : -1);
 }
