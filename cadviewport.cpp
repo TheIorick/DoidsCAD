@@ -8,6 +8,7 @@
 #include <BRepBuilderAPI_Transform.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
+#include <Prs3d_Drawer.hxx>
 #include <Quantity_Color.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <gp_Trsf.hxx>
@@ -89,6 +90,7 @@ CadViewport::CadViewport(QWidget *parent)
     : QWidget(parent, Qt::MSWindowsOwnDC)
     , m_isDragging(false)
     , m_isPlacementPickMode(false)
+    , m_surfaceDisplayMode(SurfaceDisplayMode::Shaded)
 {
     setContentsMargins(0, 0, 0, 0);
     setMouseTracking(true);
@@ -122,6 +124,7 @@ void CadViewport::setShape(const TopoDS_Shape &shape)
     if (!shape.IsNull())
     {
         m_shapePresentation = new AIS_Shape(shape);
+        applyDisplayMode(m_shapePresentation);
         m_context->Display(m_shapePresentation, AIS_Shaded, 0, Standard_False);
     }
 
@@ -154,7 +157,9 @@ void CadViewport::setWireframeMode()
     if (m_context.IsNull() || m_shapePresentation.IsNull())
         return;
 
-    m_context->SetDisplayMode(m_shapePresentation, AIS_WireFrame, Standard_True);
+    m_surfaceDisplayMode = SurfaceDisplayMode::ShadedWithEdges;
+    applyDisplayMode(m_shapePresentation);
+    update();
 }
 
 void CadViewport::setShadedMode()
@@ -162,7 +167,9 @@ void CadViewport::setShadedMode()
     if (m_context.IsNull() || m_shapePresentation.IsNull())
         return;
 
-    m_context->SetDisplayMode(m_shapePresentation, AIS_Shaded, Standard_True);
+    m_surfaceDisplayMode = SurfaceDisplayMode::Shaded;
+    applyDisplayMode(m_shapePresentation);
+    update();
 }
 
 void CadViewport::setFrontView()
@@ -409,9 +416,27 @@ void CadViewport::updatePlacementPreview(const double x, const double y, const d
 
     m_previewPresentation = new AIS_Shape(previewShape);
     m_previewPresentation->SetColor(Quantity_NOC_GREEN);
-    m_previewPresentation->SetTransparency(0.65f);
+    m_previewPresentation->SetTransparency(0.35f);
+    applyDisplayMode(m_previewPresentation);
     m_context->Display(m_previewPresentation, AIS_Shaded, 2, Standard_False);
     update();
+}
+
+void CadViewport::applyDisplayMode(const Handle(AIS_Shape) &presentation) const
+{
+    if (presentation.IsNull())
+        return;
+
+    presentation->SetDisplayMode(AIS_Shaded);
+    presentation->Attributes()->SetFaceBoundaryDraw(m_surfaceDisplayMode == SurfaceDisplayMode::ShadedWithEdges);
+
+    if (m_surfaceDisplayMode == SurfaceDisplayMode::ShadedWithEdges)
+    {
+        presentation->Attributes()->SetupOwnFaceBoundaryAspect();
+        presentation->Attributes()->FaceBoundaryAspect()->SetColor(Quantity_NOC_BLACK);
+    }
+
+    presentation->SynchronizeAspects();
 }
 
 bool CadViewport::tryPickPlacementPoint(const QPointF &position, double *x, double *y, double *z) const

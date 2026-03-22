@@ -50,12 +50,19 @@ protected:
     void wheelEvent(QWheelEvent *event) override;
 
 private:
+    enum class SurfaceDisplayMode
+    {
+        Shaded,
+        ShadedWithEdges
+    };
+
     void initializeViewer();
     void setViewOrientation(V3d_TypeOfOrientation orientation);
     void updateSelectionDescription();
     void clearHighlightPresentation();
     void clearPreviewPresentation();
     void updatePlacementPreview(double x, double y, double z);
+    void applyDisplayMode(const Handle(AIS_Shape) &presentation) const;
     bool tryPickPlacementPoint(const QPointF &position, double *x, double *y, double *z) const;
 
     Handle(AIS_InteractiveContext) m_context;
@@ -69,6 +76,7 @@ private:
     QPointF m_lastPressPosition;
     bool m_isDragging;
     bool m_isPlacementPickMode;
+    SurfaceDisplayMode m_surfaceDisplayMode;
 };
 
 #endif // CADVIEWPORT_H
