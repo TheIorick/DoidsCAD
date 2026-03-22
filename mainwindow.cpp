@@ -484,6 +484,40 @@ void MainWindow::showOperationDetails(const int operationId)
 
 void MainWindow::updateOperationParameter(const int operationId, const QString &name, const QVariant &value)
 {
+    if (name == QLatin1String("PlacementMode") && value.toString() == QLatin1String("relative"))
+    {
+        const OperationEntry *operation = m_projectDocument->findOperation(operationId);
+        if (operation != nullptr)
+        {
+            int referenceId = -1;
+            for (const OperationEntry &candidate : m_projectDocument->project().operations())
+            {
+                if (candidate.id == operationId
+                    || candidate.type == QLatin1String("fuse")
+                    || candidate.type == QLatin1String("cut"))
+                    continue;
+
+                referenceId = candidate.id;
+                break;
+            }
+
+            if (referenceId < 0)
+            {
+                QMessageBox::information(this,
+                                         tr("Relative Placement"),
+                                         tr("Relative placement requires another primitive operation as reference."));
+                selectOperation(operationId);
+                return;
+            }
+
+            if (!m_projectDocument->setOperationParameter(operationId, QStringLiteral("ReferenceId"), referenceId))
+            {
+                QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
+                return;
+            }
+        }
+    }
+
     if (!m_projectDocument->setOperationParameter(operationId, name, value))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
