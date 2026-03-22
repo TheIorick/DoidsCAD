@@ -15,7 +15,9 @@ PropertyEditorDock::PropertyEditorDock(QWidget *parent)
     m_tableWidget->verticalHeader()->setVisible(false);
     m_tableWidget->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_tableWidget->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    m_tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_tableWidget->setEditTriggers(QAbstractItemView::DoubleClicked
+                                   | QAbstractItemView::EditKeyPressed
+                                   | QAbstractItemView::SelectedClicked);
 
     m_tableWidget->setItem(0, 0, new QTableWidgetItem(tr("Selection")));
     m_tableWidget->setItem(0, 1, new QTableWidgetItem(tr("None")));
@@ -51,14 +53,32 @@ void PropertyEditorDock::showOperationDetails(const OperationEntry *operation)
     {
         m_currentOperationId = -1;
         m_tableWidget->setRowCount(4);
-        m_tableWidget->setItem(0, 0, new QTableWidgetItem(tr("Selection")));
-        m_tableWidget->setItem(0, 1, new QTableWidgetItem(tr("None")));
-        m_tableWidget->setItem(1, 0, new QTableWidgetItem(tr("Format")));
-        m_tableWidget->setItem(1, 1, new QTableWidgetItem(tr("STEP")));
-        m_tableWidget->setItem(2, 0, new QTableWidgetItem(tr("Compiler")));
-        m_tableWidget->setItem(2, 1, new QTableWidgetItem(tr("MSVC")));
-        m_tableWidget->setItem(3, 0, new QTableWidgetItem(tr("Viewer")));
-        m_tableWidget->setItem(3, 1, new QTableWidgetItem(tr("OpenCascade")));
+        auto *label0 = new QTableWidgetItem(tr("Selection"));
+        auto *value0 = new QTableWidgetItem(tr("None"));
+        auto *label1 = new QTableWidgetItem(tr("Format"));
+        auto *value1 = new QTableWidgetItem(tr("STEP"));
+        auto *label2 = new QTableWidgetItem(tr("Compiler"));
+        auto *value2 = new QTableWidgetItem(tr("MSVC"));
+        auto *label3 = new QTableWidgetItem(tr("Viewer"));
+        auto *value3 = new QTableWidgetItem(tr("OpenCascade"));
+
+        label0->setFlags(label0->flags() & ~Qt::ItemIsEditable);
+        value0->setFlags(value0->flags() & ~Qt::ItemIsEditable);
+        label1->setFlags(label1->flags() & ~Qt::ItemIsEditable);
+        value1->setFlags(value1->flags() & ~Qt::ItemIsEditable);
+        label2->setFlags(label2->flags() & ~Qt::ItemIsEditable);
+        value2->setFlags(value2->flags() & ~Qt::ItemIsEditable);
+        label3->setFlags(label3->flags() & ~Qt::ItemIsEditable);
+        value3->setFlags(value3->flags() & ~Qt::ItemIsEditable);
+
+        m_tableWidget->setItem(0, 0, label0);
+        m_tableWidget->setItem(0, 1, value0);
+        m_tableWidget->setItem(1, 0, label1);
+        m_tableWidget->setItem(1, 1, value1);
+        m_tableWidget->setItem(2, 0, label2);
+        m_tableWidget->setItem(2, 1, value2);
+        m_tableWidget->setItem(3, 0, label3);
+        m_tableWidget->setItem(3, 1, value3);
         m_isUpdating = false;
         return;
     }
@@ -66,17 +86,33 @@ void PropertyEditorDock::showOperationDetails(const OperationEntry *operation)
     m_currentOperationId = operation->id;
     const int rowCount = 3 + operation->parameters.size();
     m_tableWidget->setRowCount(rowCount);
-    m_tableWidget->setItem(0, 0, new QTableWidgetItem(tr("Operation")));
-    m_tableWidget->setItem(0, 1, new QTableWidgetItem(operation->label));
-    m_tableWidget->setItem(1, 0, new QTableWidgetItem(tr("Type")));
-    m_tableWidget->setItem(1, 1, new QTableWidgetItem(operation->type));
-    m_tableWidget->setItem(2, 0, new QTableWidgetItem(tr("State")));
-    m_tableWidget->setItem(2, 1, new QTableWidgetItem(operation->state));
+    auto *operationLabelItem = new QTableWidgetItem(tr("Operation"));
+    auto *operationValueItem = new QTableWidgetItem(operation->label);
+    auto *typeLabelItem = new QTableWidgetItem(tr("Type"));
+    auto *typeValueItem = new QTableWidgetItem(operation->type);
+    auto *stateLabelItem = new QTableWidgetItem(tr("State"));
+    auto *stateValueItem = new QTableWidgetItem(operation->state);
+
+    operationLabelItem->setFlags(operationLabelItem->flags() & ~Qt::ItemIsEditable);
+    operationValueItem->setFlags(operationValueItem->flags() & ~Qt::ItemIsEditable);
+    typeLabelItem->setFlags(typeLabelItem->flags() & ~Qt::ItemIsEditable);
+    typeValueItem->setFlags(typeValueItem->flags() & ~Qt::ItemIsEditable);
+    stateLabelItem->setFlags(stateLabelItem->flags() & ~Qt::ItemIsEditable);
+    stateValueItem->setFlags(stateValueItem->flags() & ~Qt::ItemIsEditable);
+
+    m_tableWidget->setItem(0, 0, operationLabelItem);
+    m_tableWidget->setItem(0, 1, operationValueItem);
+    m_tableWidget->setItem(1, 0, typeLabelItem);
+    m_tableWidget->setItem(1, 1, typeValueItem);
+    m_tableWidget->setItem(2, 0, stateLabelItem);
+    m_tableWidget->setItem(2, 1, stateValueItem);
 
     for (int i = 0; i < operation->parameters.size(); ++i)
     {
         const OperationParameter &parameter = operation->parameters.at(i);
-        m_tableWidget->setItem(3 + i, 0, new QTableWidgetItem(parameter.name));
+        auto *nameItem = new QTableWidgetItem(parameter.name);
+        nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
+        m_tableWidget->setItem(3 + i, 0, nameItem);
         auto *valueItem = new QTableWidgetItem(parameter.value.toString());
         if (operation->type != QLatin1String("box"))
             valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
