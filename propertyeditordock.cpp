@@ -115,7 +115,8 @@ void PropertyEditorDock::showOperationDetails(const OperationEntry *operation)
         m_tableWidget->setItem(3 + i, 0, nameItem);
         auto *valueItem = new QTableWidgetItem(parameter.value.toString());
         if (operation->type != QLatin1String("box")
-            && operation->type != QLatin1String("cylinder"))
+            && operation->type != QLatin1String("cylinder")
+            && operation->type != QLatin1String("fuse"))
             valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
 
         m_tableWidget->setItem(3 + i, 1, valueItem);
