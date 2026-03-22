@@ -1,6 +1,8 @@
 #ifndef PROJECTDOCUMENT_H
 #define PROJECTDOCUMENT_H
 
+#include "projectmodel.h"
+
 #include <TopoDS_Shape.hxx>
 
 #include <QString>
@@ -16,8 +18,12 @@ public:
     const TopoDS_Shape &shape() const;
     bool hasShape() const;
     QString description() const;
+    const ProjectModel &project() const;
 
 private:
+    void initializeStartupProject();
+
+    ProjectModel m_project;
     TopoDS_Shape m_shape;
     QString m_description;
 };

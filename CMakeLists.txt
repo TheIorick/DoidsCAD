@@ -30,6 +30,9 @@ set(PROJECT_SOURCES
     operationlistdock.h
     projectdocument.cpp
     projectdocument.h
+    projectmodel.cpp
+    projectmodel.h
+    projecttypes.h
     propertyeditordock.cpp
     propertyeditordock.h
     stepexchange.cpp

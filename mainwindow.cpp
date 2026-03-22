@@ -138,6 +138,13 @@ void MainWindow::refreshViewport()
         m_viewport->setShape(m_projectDocument->shape());
     else
         m_viewport->clearShape();
+
+    refreshOperationTree();
+}
+
+void MainWindow::refreshOperationTree()
+{
+    m_operationDock->setOperations(m_projectDocument->project().operations());
 }
 
 void MainWindow::createActions()

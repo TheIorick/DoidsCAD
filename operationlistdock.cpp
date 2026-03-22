@@ -13,11 +13,28 @@ OperationListDock::OperationListDock(QWidget *parent)
     m_treeWidget->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_treeWidget->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
 
-    auto *rootItem = new QTreeWidgetItem(m_treeWidget, {tr("Project"), tr("Idle")});
-    new QTreeWidgetItem(rootItem, {tr("Import STEP"), tr("Planned")});
-    new QTreeWidgetItem(rootItem, {tr("Build Cylinder"), tr("Planned")});
-    new QTreeWidgetItem(rootItem, {tr("Chamfer"), tr("Planned")});
-    rootItem->setExpanded(true);
-
     setWidget(m_treeWidget);
+}
+
+void OperationListDock::setOperations(const QVector<OperationEntry> &operations)
+{
+    m_treeWidget->clear();
+
+    auto *rootItem = new QTreeWidgetItem(m_treeWidget, {tr("Project"), tr("Ready")});
+    for (const OperationEntry &operation : operations)
+    {
+        const QString title = tr("#%1 %2").arg(operation.id).arg(operation.label);
+        auto *operationItem = new QTreeWidgetItem(rootItem, {title, operation.state});
+
+        for (const OperationParameter &parameter : operation.parameters)
+        {
+            new QTreeWidgetItem(operationItem,
+                                {tr("%1 = %2")
+                                     .arg(parameter.name)
+                                     .arg(parameter.value.toString()),
+                                 tr("Parameter")});
+        }
+    }
+
+    rootItem->setExpanded(true);
 }

@@ -31,6 +31,7 @@ private:
     void createDocks();
     void configureWindow();
     void refreshViewport();
+    void refreshOperationTree();
 
     CadViewport *m_viewport;
     OperationListDock *m_operationDock;
