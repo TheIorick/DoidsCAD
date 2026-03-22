@@ -6,6 +6,7 @@
 class QAction;
 class CadViewport;
 class OperationListDock;
+class ProjectDocument;
 class PropertyEditorDock;
 
 class MainWindow : public QMainWindow
@@ -17,9 +18,11 @@ public:
     ~MainWindow();
 
 private slots:
+    void newProject();
     void showNotImplementedMessage();
     void importStep();
     void exportStep();
+    void updateSelectionDescription(const QString &description);
 
 private:
     void createActions();
@@ -27,9 +30,11 @@ private:
     void createToolBar();
     void createDocks();
     void configureWindow();
+    void refreshViewport();
 
     CadViewport *m_viewport;
     OperationListDock *m_operationDock;
+    ProjectDocument *m_projectDocument;
     PropertyEditorDock *m_propertyDock;
 
     QAction *m_newProjectAction;
@@ -39,6 +44,10 @@ private:
     QAction *m_fitViewAction;
     QAction *m_wireframeAction;
     QAction *m_shadedAction;
+    QAction *m_frontViewAction;
+    QAction *m_topViewAction;
+    QAction *m_rightViewAction;
+    QAction *m_isometricViewAction;
 };
 
 #endif // MAINWINDOW_H

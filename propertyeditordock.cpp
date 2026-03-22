@@ -22,7 +22,19 @@ PropertyEditorDock::PropertyEditorDock(QWidget *parent)
     m_tableWidget->setItem(2, 0, new QTableWidgetItem(tr("Compiler")));
     m_tableWidget->setItem(2, 1, new QTableWidgetItem(tr("MSVC")));
     m_tableWidget->setItem(3, 0, new QTableWidgetItem(tr("Viewer")));
-    m_tableWidget->setItem(3, 1, new QTableWidgetItem(tr("OpenCascade - pending integration")));
+    m_tableWidget->setItem(3, 1, new QTableWidgetItem(tr("OpenCascade")));
 
     setWidget(m_tableWidget);
+}
+
+void PropertyEditorDock::setSelectionDescription(const QString &description)
+{
+    QTableWidgetItem *selectionValueItem = m_tableWidget->item(0, 1);
+    if (selectionValueItem == nullptr)
+    {
+        selectionValueItem = new QTableWidgetItem();
+        m_tableWidget->setItem(0, 1, selectionValueItem);
+    }
+
+    selectionValueItem->setText(description);
 }

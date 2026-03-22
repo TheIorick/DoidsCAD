@@ -5,14 +5,8 @@
 #include <AIS_DisplayMode.hxx>
 #include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <IFSelect_ReturnStatus.hxx>
-#include <Interface_Static.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
-#include <STEPControl_Reader.hxx>
-#include <STEPControl_Writer.hxx>
-#include <Standard_Failure.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <QGuiApplication>
 #include <QMouseEvent>
@@ -58,10 +52,38 @@ Graphic3d_Vec2i devicePosition(const QPointF &position)
 
     return Graphic3d_Vec2i(qRound(position.x() * scaleFactor), qRound(position.y() * scaleFactor));
 }
+
+QString shapeTypeToText(const TopAbs_ShapeEnum shapeType)
+{
+    switch (shapeType)
+    {
+    case TopAbs_COMPOUND:
+        return QObject::tr("Compound");
+    case TopAbs_COMPSOLID:
+        return QObject::tr("Composite solid");
+    case TopAbs_SOLID:
+        return QObject::tr("Solid");
+    case TopAbs_SHELL:
+        return QObject::tr("Shell");
+    case TopAbs_FACE:
+        return QObject::tr("Face");
+    case TopAbs_WIRE:
+        return QObject::tr("Wire");
+    case TopAbs_EDGE:
+        return QObject::tr("Edge");
+    case TopAbs_VERTEX:
+        return QObject::tr("Vertex");
+    case TopAbs_SHAPE:
+        return QObject::tr("Shape");
+    default:
+        return QObject::tr("Unknown");
+    }
+}
 }
 
 CadViewport::CadViewport(QWidget *parent)
     : QWidget(parent, Qt::MSWindowsOwnDC)
+    , m_isDragging(false)
 {
     setContentsMargins(0, 0, 0, 0);
     setMouseTracking(true);
@@ -72,7 +94,6 @@ CadViewport::CadViewport(QWidget *parent)
     setBackgroundRole(QPalette::NoRole);
 
     initializeViewer();
-    displayStartupShape();
 }
 
 QPaintEngine *CadViewport::paintEngine() const
@@ -80,88 +101,35 @@ QPaintEngine *CadViewport::paintEngine() const
     return nullptr;
 }
 
-bool CadViewport::importStep(const QString &filePath, QString *errorMessage)
+void CadViewport::setShape(const TopoDS_Shape &shape)
 {
-    STEPControl_Reader reader;
-    const IFSelect_ReturnStatus readStatus = reader.ReadFile(filePath.toStdString().c_str());
+    if (m_context.IsNull())
+        return;
 
-    if (readStatus != IFSelect_RetDone)
+    if (!m_shapePresentation.IsNull())
+        m_context->Remove(m_shapePresentation, Standard_False);
+
+    m_currentShape = shape;
+    m_shapePresentation.Nullify();
+
+    if (!shape.IsNull())
     {
-        if (errorMessage != nullptr)
-            *errorMessage = tr("OpenCascade could not read the STEP file.");
-
-        return false;
+        m_shapePresentation = new AIS_Shape(shape);
+        m_context->Display(m_shapePresentation, AIS_Shaded, 0, Standard_False);
     }
 
-    const Standard_Integer roots = reader.TransferRoots();
-    if (roots <= 0)
-    {
-        if (errorMessage != nullptr)
-            *errorMessage = tr("The STEP file does not contain transferable shapes.");
+    m_context->ClearSelected(Standard_False);
+    updateSelectionDescription();
 
-        return false;
-    }
-
-    const TopoDS_Shape importedShape = reader.OneShape();
-    if (importedShape.IsNull())
-    {
-        if (errorMessage != nullptr)
-            *errorMessage = tr("The imported STEP model is empty.");
-
-        return false;
-    }
-
-    displayShape(importedShape);
-    return true;
+    if (!shape.IsNull())
+        fitAll();
+    else
+        update();
 }
 
-bool CadViewport::exportStep(const QString &filePath, QString *errorMessage) const
+void CadViewport::clearShape()
 {
-    if (m_currentShape.IsNull())
-    {
-        if (errorMessage != nullptr)
-            *errorMessage = tr("There is no shape to export.");
-
-        return false;
-    }
-
-    try
-    {
-        STEPControl_Writer writer;
-        Interface_Static::SetCVal("write.step.schema", "AP203");
-
-        const IFSelect_ReturnStatus transferStatus = writer.Transfer(m_currentShape, STEPControl_AsIs);
-        if (transferStatus != IFSelect_RetDone)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = tr("OpenCascade could not prepare the shape for STEP export.");
-
-            return false;
-        }
-
-        const IFSelect_ReturnStatus writeStatus = writer.Write(filePath.toStdString().c_str());
-        if (writeStatus != IFSelect_RetDone)
-        {
-            if (errorMessage != nullptr)
-                *errorMessage = tr("OpenCascade could not write the STEP file.");
-
-            return false;
-        }
-    }
-    catch (const Standard_Failure &failure)
-    {
-        if (errorMessage != nullptr)
-            *errorMessage = QString::fromLocal8Bit(failure.GetMessageString());
-
-        return false;
-    }
-
-    return true;
-}
-
-bool CadViewport::hasShape() const
-{
-    return !m_currentShape.IsNull();
+    setShape(TopoDS_Shape());
 }
 
 void CadViewport::fitAll()
@@ -190,6 +158,26 @@ void CadViewport::setShadedMode()
     m_context->SetDisplayMode(m_shapePresentation, AIS_Shaded, Standard_True);
 }
 
+void CadViewport::setFrontView()
+{
+    setViewOrientation(V3d_TypeOfOrientation_Zup_Front);
+}
+
+void CadViewport::setTopView()
+{
+    setViewOrientation(V3d_TypeOfOrientation_Zup_Top);
+}
+
+void CadViewport::setRightView()
+{
+    setViewOrientation(V3d_TypeOfOrientation_Zup_Right);
+}
+
+void CadViewport::setIsometricView()
+{
+    setViewOrientation(V3d_TypeOfOrientation_Zup_AxoRight);
+}
+
 void CadViewport::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
@@ -211,6 +199,9 @@ void CadViewport::paintEvent(QPaintEvent *event)
 
 void CadViewport::mousePressEvent(QMouseEvent *event)
 {
+    m_lastPressPosition = event->position();
+    m_isDragging = false;
+
     if (UpdateMouseButtons(devicePosition(event->position()),
                            toAspectMouseButtons(event->buttons()),
                            toAspectModifiers(event->modifiers()),
@@ -220,6 +211,18 @@ void CadViewport::mousePressEvent(QMouseEvent *event)
 
 void CadViewport::mouseReleaseEvent(QMouseEvent *event)
 {
+    if (event->button() == Qt::LeftButton
+        && !m_context.IsNull()
+        && !m_view.IsNull()
+        && !m_isDragging)
+    {
+        const Graphic3d_Vec2i mousePosition = devicePosition(event->position());
+        m_context->MoveTo(mousePosition.x(), mousePosition.y(), m_view, Standard_False);
+        m_context->SelectDetected(AIS_SelectionScheme_Replace);
+        updateSelectionDescription();
+        update();
+    }
+
     if (UpdateMouseButtons(devicePosition(event->position()),
                            toAspectMouseButtons(event->buttons()),
                            toAspectModifiers(event->modifiers()),
@@ -231,6 +234,12 @@ void CadViewport::mouseReleaseEvent(QMouseEvent *event)
 
 void CadViewport::mouseMoveEvent(QMouseEvent *event)
 {
+    if (!m_isDragging && (event->position() - m_lastPressPosition).manhattanLength() >= 3.0)
+        m_isDragging = true;
+
+    if (event->buttons() == Qt::NoButton && !m_context.IsNull() && !m_view.IsNull())
+        m_context->MoveTo(devicePosition(event->position()).x(), devicePosition(event->position()).y(), m_view, Standard_False);
+
     if (UpdateMousePosition(devicePosition(event->position()),
                             toAspectMouseButtons(event->buttons()),
                             toAspectModifiers(event->modifiers()),
@@ -268,18 +277,35 @@ void CadViewport::initializeViewer()
     m_view->MustBeResized();
 }
 
-void CadViewport::displayStartupShape()
+void CadViewport::setViewOrientation(const V3d_TypeOfOrientation orientation)
 {
-    displayShape(BRepPrimAPI_MakeBox(120.0, 80.0, 60.0).Shape());
+    if (m_view.IsNull())
+        return;
+
+    m_view->SetProj(orientation, Standard_False);
+    fitAll();
 }
 
-void CadViewport::displayShape(const TopoDS_Shape &shape)
+void CadViewport::updateSelectionDescription()
 {
-    if (!m_shapePresentation.IsNull())
-        m_context->Remove(m_shapePresentation, Standard_False);
+    QString description = tr("None");
 
-    m_currentShape = shape;
-    m_shapePresentation = new AIS_Shape(shape);
-    m_context->Display(m_shapePresentation, AIS_Shaded, 0, Standard_False);
-    fitAll();
+    if (!m_context.IsNull() && m_context->NbSelected() > 0)
+    {
+        m_context->InitSelected();
+        if (m_context->MoreSelected())
+        {
+            const Handle(AIS_InteractiveObject) selectedObject = m_context->SelectedInteractive();
+            if (!selectedObject.IsNull())
+            {
+                const Handle(AIS_Shape) selectedShape = Handle(AIS_Shape)::DownCast(selectedObject);
+                if (!selectedShape.IsNull())
+                    description = shapeTypeToText(selectedShape->Shape().ShapeType());
+                else
+                    description = tr("Interactive object");
+            }
+        }
+    }
+
+    emit selectionDescriptionChanged(description);
 }

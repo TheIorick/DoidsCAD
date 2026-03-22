@@ -7,6 +7,7 @@
 #include <TopoDS_Shape.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
+#include <V3d_TypeOfOrientation.hxx>
 
 #include <QWidget>
 
@@ -18,14 +19,20 @@ public:
     explicit CadViewport(QWidget *parent = nullptr);
 
     QPaintEngine *paintEngine() const override;
-    bool importStep(const QString &filePath, QString *errorMessage = nullptr);
-    bool exportStep(const QString &filePath, QString *errorMessage = nullptr) const;
-    bool hasShape() const;
+    void setShape(const TopoDS_Shape &shape);
+    void clearShape();
+
+signals:
+    void selectionDescriptionChanged(const QString &description);
 
 public slots:
     void fitAll();
     void setWireframeMode();
     void setShadedMode();
+    void setFrontView();
+    void setTopView();
+    void setRightView();
+    void setIsometricView();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -37,14 +44,16 @@ protected:
 
 private:
     void initializeViewer();
-    void displayStartupShape();
-    void displayShape(const TopoDS_Shape &shape);
+    void setViewOrientation(V3d_TypeOfOrientation orientation);
+    void updateSelectionDescription();
 
     Handle(AIS_InteractiveContext) m_context;
     Handle(V3d_Viewer) m_viewer;
     Handle(V3d_View) m_view;
     Handle(AIS_Shape) m_shapePresentation;
     TopoDS_Shape m_currentShape;
+    QPointF m_lastPressPosition;
+    bool m_isDragging;
 };
 
 #endif // CADVIEWPORT_H

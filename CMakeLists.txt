@@ -28,8 +28,12 @@ set(PROJECT_SOURCES
     occtwindow.h
     operationlistdock.cpp
     operationlistdock.h
+    projectdocument.cpp
+    projectdocument.h
     propertyeditordock.cpp
     propertyeditordock.h
+    stepexchange.cpp
+    stepexchange.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

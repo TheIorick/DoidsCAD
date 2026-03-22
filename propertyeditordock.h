@@ -11,6 +11,7 @@ class PropertyEditorDock : public QDockWidget
 
 public:
     explicit PropertyEditorDock(QWidget *parent = nullptr);
+    void setSelectionDescription(const QString &description);
 
 private:
     QTableWidget *m_tableWidget;
