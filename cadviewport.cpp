@@ -7,6 +7,7 @@
 #include <Aspect_DisplayConnection.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
+#include <Quantity_Color.hxx>
 #include <TopAbs_ShapeEnum.hxx>
 #include <QGuiApplication>
 #include <QMouseEvent>
@@ -109,6 +110,8 @@ void CadViewport::setShape(const TopoDS_Shape &shape)
     if (!m_shapePresentation.IsNull())
         m_context->Remove(m_shapePresentation, Standard_False);
 
+    clearHighlightPresentation();
+
     m_currentShape = shape;
     m_shapePresentation.Nullify();
 
@@ -189,6 +192,25 @@ void CadViewport::setDisplayedShapeSelected(const bool selected)
         m_context->ClearSelected(Standard_False);
 
     updateSelectionDescription();
+    update();
+}
+
+void CadViewport::setHighlightedShape(const TopoDS_Shape &shape)
+{
+    if (m_context.IsNull())
+        return;
+
+    clearHighlightPresentation();
+
+    if (shape.IsNull())
+    {
+        update();
+        return;
+    }
+
+    m_highlightPresentation = new AIS_Shape(shape);
+    m_highlightPresentation->SetColor(Quantity_NOC_RED);
+    m_context->Display(m_highlightPresentation, AIS_WireFrame, 1, Standard_False);
     update();
 }
 
@@ -298,6 +320,14 @@ void CadViewport::setViewOrientation(const V3d_TypeOfOrientation orientation)
 
     m_view->SetProj(orientation, Standard_False);
     fitAll();
+}
+
+void CadViewport::clearHighlightPresentation()
+{
+    if (!m_context.IsNull() && !m_highlightPresentation.IsNull())
+        m_context->Remove(m_highlightPresentation, Standard_False);
+
+    m_highlightPresentation.Nullify();
 }
 
 void CadViewport::updateSelectionDescription()

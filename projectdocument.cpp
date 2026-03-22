@@ -63,6 +63,17 @@ QString ProjectDocument::lastBuildError() const
     return m_buildResult.errorMessage;
 }
 
+TopoDS_Shape ProjectDocument::shapeForOperation(const int id) const
+{
+    for (const OperationBuildShape &entry : m_buildResult.operationShapes)
+    {
+        if (entry.operationId == id)
+            return entry.shape;
+    }
+
+    return TopoDS_Shape();
+}
+
 const ProjectModel &ProjectDocument::project() const
 {
     return m_project;

@@ -34,6 +34,7 @@ public slots:
     void setRightView();
     void setIsometricView();
     void setDisplayedShapeSelected(bool selected);
+    void setHighlightedShape(const TopoDS_Shape &shape);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -47,11 +48,13 @@ private:
     void initializeViewer();
     void setViewOrientation(V3d_TypeOfOrientation orientation);
     void updateSelectionDescription();
+    void clearHighlightPresentation();
 
     Handle(AIS_InteractiveContext) m_context;
     Handle(V3d_Viewer) m_viewer;
     Handle(V3d_View) m_view;
     Handle(AIS_Shape) m_shapePresentation;
+    Handle(AIS_Shape) m_highlightPresentation;
     TopoDS_Shape m_currentShape;
     QPointF m_lastPressPosition;
     bool m_isDragging;

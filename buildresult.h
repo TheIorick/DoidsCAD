@@ -4,6 +4,13 @@
 #include <TopoDS_Shape.hxx>
 
 #include <QString>
+#include <QVector>
+
+struct OperationBuildShape
+{
+    int operationId = 0;
+    TopoDS_Shape shape;
+};
 
 struct BuildResult
 {
@@ -11,6 +18,7 @@ struct BuildResult
     TopoDS_Shape shape;
     QString description;
     QString errorMessage;
+    QVector<OperationBuildShape> operationShapes;
 };
 
 #endif // BUILDRESULT_H

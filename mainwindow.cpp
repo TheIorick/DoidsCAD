@@ -154,6 +154,7 @@ void MainWindow::showOperationDetails(const int operationId)
 {
     m_propertyDock->showOperationDetails(m_projectDocument->findOperation(operationId));
     m_viewport->setDisplayedShapeSelected(operationId >= 0);
+    m_viewport->setHighlightedShape(m_projectDocument->shapeForOperation(operationId));
 
     if (operationId >= 0)
         statusBar()->showMessage(tr("Operation #%1 selected").arg(operationId), 3000);

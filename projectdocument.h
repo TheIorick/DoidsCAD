@@ -22,6 +22,7 @@ public:
     bool hasShape() const;
     QString description() const;
     QString lastBuildError() const;
+    TopoDS_Shape shapeForOperation(int id) const;
     const ProjectModel &project() const;
     const OperationEntry *findOperation(int id) const;
 
