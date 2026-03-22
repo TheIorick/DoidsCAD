@@ -12,9 +12,6 @@
 #include <Prs3d_Drawer.hxx>
 #include <Quantity_Color.hxx>
 #include <TopAbs_ShapeEnum.hxx>
-#include <gp_Ax3.hxx>
-#include <gp_Dir.hxx>
-#include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
 #include <cmath>
 #include <QGuiApplication>
@@ -349,12 +346,6 @@ void CadViewport::initializeViewer()
 
     m_context = new AIS_InteractiveContext(m_viewer);
     m_view = m_context->CurrentViewer()->CreateView();
-
-    m_viewer->SetPrivilegedPlane(gp_Ax3(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(0.0, 0.0, 1.0)));
-    m_viewer->SetRectangularGridValues(0.0, 0.0, 100.0, 100.0, 0.0);
-    m_viewer->SetRectangularGridGraphicValues(2000.0, 2000.0, 0.0);
-    m_viewer->ActivateGrid(Aspect_GT_Rectangular, Aspect_GDM_Lines);
-    m_viewer->SetGridEcho(Standard_False);
 
     Handle(OcctWindow) window = new OcctWindow(this);
     m_view->SetWindow(window);
