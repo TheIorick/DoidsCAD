@@ -183,10 +183,13 @@ void MainWindow::refreshViewport()
 void MainWindow::refreshOperationTree()
 {
     m_operationDock->setOperations(m_projectDocument->project().operations());
+    m_operationDock->selectOperation(m_selectedOperationId);
 }
 
 void MainWindow::selectOperation(const int operationId)
 {
+    m_selectedOperationId = operationId;
+    m_operationDock->selectOperation(operationId);
     showOperationDetails(operationId);
 }
 

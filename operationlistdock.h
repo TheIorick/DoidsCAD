@@ -14,6 +14,7 @@ class OperationListDock : public QDockWidget
 public:
     explicit OperationListDock(QWidget *parent = nullptr);
     void setOperations(const QVector<OperationEntry> &operations);
+    void selectOperation(int operationId);
 
 signals:
     void operationSelected(int operationId);

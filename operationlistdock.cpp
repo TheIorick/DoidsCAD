@@ -1,6 +1,7 @@
 #include "operationlistdock.h"
 
 #include <QHeaderView>
+#include <QSignalBlocker>
 #include <QTreeWidget>
 
 OperationListDock::OperationListDock(QWidget *parent)
@@ -39,6 +40,41 @@ void OperationListDock::setOperations(const QVector<OperationEntry> &operations)
     }
 
     rootItem->setExpanded(true);
+}
+
+void OperationListDock::selectOperation(const int operationId)
+{
+    const QSignalBlocker blocker(m_treeWidget);
+
+    if (operationId < 0)
+    {
+        m_treeWidget->clearSelection();
+        m_treeWidget->setCurrentItem(nullptr);
+        return;
+    }
+
+    for (int i = 0; i < m_treeWidget->topLevelItemCount(); ++i)
+    {
+        QTreeWidgetItem *rootItem = m_treeWidget->topLevelItem(i);
+        if (rootItem == nullptr)
+            continue;
+
+        for (int j = 0; j < rootItem->childCount(); ++j)
+        {
+            QTreeWidgetItem *operationItem = rootItem->child(j);
+            if (operationItem == nullptr)
+                continue;
+
+            bool ok = false;
+            const int itemOperationId = operationItem->data(0, Qt::UserRole).toInt(&ok);
+            if (ok && itemOperationId == operationId)
+            {
+                m_treeWidget->setCurrentItem(operationItem);
+                operationItem->setSelected(true);
+                return;
+            }
+        }
+    }
 }
 
 void OperationListDock::handleCurrentItemChanged()
