@@ -27,6 +27,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_exportStepAction(nullptr)
     , m_exitAction(nullptr)
     , m_addBoxAction(nullptr)
+    , m_addCylinderAction(nullptr)
     , m_fitViewAction(nullptr)
     , m_wireframeAction(nullptr)
     , m_shadedAction(nullptr)
@@ -73,6 +74,22 @@ void MainWindow::addBoxOperation()
 
     refreshViewport();
     statusBar()->showMessage(tr("Added Box operation: %1 x %2 x %3").arg(length).arg(width).arg(height), 5000);
+}
+
+void MainWindow::addCylinderOperation()
+{
+    const int index = m_projectDocument->project().operationCount();
+    const double radius = 40.0 + index * 5.0;
+    const double height = 100.0 + index * 15.0;
+
+    if (!m_projectDocument->addCylinderOperation(radius, height))
+    {
+        QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
+        return;
+    }
+
+    refreshViewport();
+    statusBar()->showMessage(tr("Added Cylinder operation: R%1 H%2").arg(radius).arg(height), 5000);
 }
 
 void MainWindow::showNotImplementedMessage()
@@ -227,6 +244,7 @@ void MainWindow::createActions()
     m_exitAction->setShortcut(QKeySequence::Quit);
 
     m_addBoxAction = new QAction(tr("Add Box"), this);
+    m_addCylinderAction = new QAction(tr("Add Cylinder"), this);
 
     m_fitViewAction = new QAction(tr("Fit View"), this);
     m_wireframeAction = new QAction(tr("Wireframe"), this);
@@ -238,6 +256,7 @@ void MainWindow::createActions()
 
     connect(m_newProjectAction, &QAction::triggered, this, &MainWindow::newProject);
     connect(m_addBoxAction, &QAction::triggered, this, &MainWindow::addBoxOperation);
+    connect(m_addCylinderAction, &QAction::triggered, this, &MainWindow::addCylinderOperation);
     connect(m_importStepAction, &QAction::triggered, this, &MainWindow::importStep);
     connect(m_exportStepAction, &QAction::triggered, this, &MainWindow::exportStep);
     connect(m_fitViewAction, &QAction::triggered, m_viewport, &CadViewport::fitAll);
@@ -276,6 +295,7 @@ void MainWindow::createMenus()
 
     QMenu *modelMenu = menuBar()->addMenu(tr("Model"));
     modelMenu->addAction(m_addBoxAction);
+    modelMenu->addAction(m_addCylinderAction);
     menuBar()->addMenu(tr("Help"));
 }
 
@@ -285,6 +305,7 @@ void MainWindow::createToolBar()
     mainToolBar->setMovable(false);
     mainToolBar->addAction(m_newProjectAction);
     mainToolBar->addAction(m_addBoxAction);
+    mainToolBar->addAction(m_addCylinderAction);
     mainToolBar->addAction(m_importStepAction);
     mainToolBar->addAction(m_exportStepAction);
     mainToolBar->addSeparator();

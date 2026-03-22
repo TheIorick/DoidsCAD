@@ -37,6 +37,17 @@ bool ProjectDocument::addBoxOperation(const double length, const double width, c
     return rebuild();
 }
 
+bool ProjectDocument::addCylinderOperation(const double radius, const double height)
+{
+    const int operationNumber = m_project.operationCount() + 1;
+    m_project.addOperation(QStringLiteral("cylinder"),
+                           QStringLiteral("Cylinder %1").arg(operationNumber),
+                           QStringLiteral("Done"),
+                           {{QStringLiteral("Radius"), radius},
+                            {QStringLiteral("Height"), height}});
+    return rebuild();
+}
+
 bool ProjectDocument::setOperationParameter(const int operationId, const QString &name, const QVariant &value)
 {
     if (!m_project.setOperationParameter(operationId, name, value))

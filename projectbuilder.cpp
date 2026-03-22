@@ -1,6 +1,7 @@
 #include "projectbuilder.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
 
 namespace
 {
@@ -47,6 +48,13 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
             const double width = parameterValue(operation, QStringLiteral("Width"), 80.0);
             const double height = parameterValue(operation, QStringLiteral("Height"), 60.0);
             operationShape = BRepPrimAPI_MakeBox(length, width, height).Shape();
+            result.description = operation.label;
+        }
+        else if (operation.type == QStringLiteral("cylinder"))
+        {
+            const double radius = parameterValue(operation, QStringLiteral("Radius"), 40.0);
+            const double height = parameterValue(operation, QStringLiteral("Height"), 100.0);
+            operationShape = BRepPrimAPI_MakeCylinder(radius, height).Shape();
             result.description = operation.label;
         }
         else if (operation.type == QStringLiteral("import_step"))
