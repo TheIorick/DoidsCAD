@@ -5,10 +5,12 @@
 #include <AIS_DisplayMode.hxx>
 #include <AIS_Shape.hxx>
 #include <Aspect_DisplayConnection.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include <Graphic3d_GraphicDriver.hxx>
 #include <OpenGl_GraphicDriver.hxx>
 #include <Quantity_Color.hxx>
 #include <TopAbs_ShapeEnum.hxx>
+#include <gp_Trsf.hxx>
 #include <cmath>
 #include <QGuiApplication>
 #include <QMouseEvent>
@@ -216,6 +218,12 @@ void CadViewport::setHighlightedShape(const TopoDS_Shape &shape)
     update();
 }
 
+void CadViewport::setPlacementPreviewShape(const TopoDS_Shape &shape)
+{
+    m_previewBaseShape = shape;
+    clearPreviewPresentation();
+}
+
 void CadViewport::startPlacementPick()
 {
     m_isPlacementPickMode = true;
@@ -229,6 +237,7 @@ void CadViewport::cancelPlacementPick()
 
     m_isPlacementPickMode = false;
     unsetCursor();
+    clearPreviewPresentation();
 }
 
 void CadViewport::resizeEvent(QResizeEvent *event)
@@ -313,6 +322,15 @@ void CadViewport::mouseMoveEvent(QMouseEvent *event)
     if (!m_isDragging && (event->position() - m_lastPressPosition).manhattanLength() >= 3.0)
         m_isDragging = true;
 
+    if (m_isPlacementPickMode && event->buttons() == Qt::NoButton)
+    {
+        double x = 0.0;
+        double y = 0.0;
+        double z = 0.0;
+        if (tryPickPlacementPoint(event->position(), &x, &y, &z))
+            updatePlacementPreview(x, y, z);
+    }
+
     if (event->buttons() == Qt::NoButton && !m_context.IsNull() && !m_view.IsNull())
         m_context->MoveTo(devicePosition(event->position()).x(), devicePosition(event->position()).y(), m_view, Standard_False);
 
@@ -368,6 +386,32 @@ void CadViewport::clearHighlightPresentation()
         m_context->Remove(m_highlightPresentation, Standard_False);
 
     m_highlightPresentation.Nullify();
+}
+
+void CadViewport::clearPreviewPresentation()
+{
+    if (!m_context.IsNull() && !m_previewPresentation.IsNull())
+        m_context->Remove(m_previewPresentation, Standard_False);
+
+    m_previewPresentation.Nullify();
+}
+
+void CadViewport::updatePlacementPreview(const double x, const double y, const double z)
+{
+    if (m_context.IsNull() || m_previewBaseShape.IsNull())
+        return;
+
+    clearPreviewPresentation();
+
+    gp_Trsf transform;
+    transform.SetTranslation(gp_Vec(x, y, z));
+    const TopoDS_Shape previewShape = BRepBuilderAPI_Transform(m_previewBaseShape, transform, Standard_True).Shape();
+
+    m_previewPresentation = new AIS_Shape(previewShape);
+    m_previewPresentation->SetColor(Quantity_NOC_GREEN);
+    m_previewPresentation->SetTransparency(0.65f);
+    m_context->Display(m_previewPresentation, AIS_Shaded, 2, Standard_False);
+    update();
 }
 
 bool CadViewport::tryPickPlacementPoint(const QPointF &position, double *x, double *y, double *z) const

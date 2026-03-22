@@ -6,6 +6,8 @@
 #include "propertyeditordock.h"
 #include "stepexchange.h"
 
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
 #include <QAction>
 #include <QComboBox>
 #include <QDialog>
@@ -248,6 +250,8 @@ void MainWindow::addBoxOperation()
         m_pendingPrimitiveCreation.firstSize = parameters.firstSize;
         m_pendingPrimitiveCreation.secondSize = parameters.secondSize;
         m_pendingPrimitiveCreation.thirdSize = parameters.thirdSize;
+        m_viewport->setPlacementPreviewShape(
+            BRepPrimAPI_MakeBox(parameters.firstSize, parameters.secondSize, parameters.thirdSize).Shape());
         m_viewport->startPlacementPick();
         statusBar()->showMessage(tr("Click in viewport to place the box on Z=0 plane. Right click cancels."), 8000);
         return;
@@ -297,6 +301,8 @@ void MainWindow::addCylinderOperation()
         m_pendingPrimitiveCreation.firstSize = parameters.firstSize;
         m_pendingPrimitiveCreation.secondSize = parameters.secondSize;
         m_pendingPrimitiveCreation.thirdSize = 0.0;
+        m_viewport->setPlacementPreviewShape(
+            BRepPrimAPI_MakeCylinder(parameters.firstSize, parameters.secondSize).Shape());
         m_viewport->startPlacementPick();
         statusBar()->showMessage(tr("Click in viewport to place the cylinder on Z=0 plane. Right click cancels."), 8000);
         return;
