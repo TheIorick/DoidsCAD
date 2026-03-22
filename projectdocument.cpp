@@ -25,6 +25,18 @@ void ProjectDocument::setShape(const TopoDS_Shape &shape, const QString &descrip
     rebuild();
 }
 
+bool ProjectDocument::addBoxOperation(const double length, const double width, const double height)
+{
+    const int operationNumber = m_project.operationCount() + 1;
+    m_project.addOperation(QStringLiteral("box"),
+                           QStringLiteral("Box %1").arg(operationNumber),
+                           QStringLiteral("Done"),
+                           {{QStringLiteral("Length"), length},
+                            {QStringLiteral("Width"), width},
+                            {QStringLiteral("Height"), height}});
+    return rebuild();
+}
+
 bool ProjectDocument::rebuild()
 {
     m_buildResult = ProjectBuilder::build(m_project, m_importedShapeSnapshot);

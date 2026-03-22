@@ -18,6 +18,7 @@ public:
 
     const QVector<OperationEntry> &operations() const;
     const OperationEntry *findOperation(int id) const;
+    int operationCount() const;
 
 private:
     QVector<OperationEntry> m_operations;

@@ -40,3 +40,8 @@ const OperationEntry *ProjectModel::findOperation(const int id) const
 
     return nullptr;
 }
+
+int ProjectModel::operationCount() const
+{
+    return m_operations.size();
+}

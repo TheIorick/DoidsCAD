@@ -25,6 +25,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_importStepAction(nullptr)
     , m_exportStepAction(nullptr)
     , m_exitAction(nullptr)
+    , m_addBoxAction(nullptr)
     , m_fitViewAction(nullptr)
     , m_wireframeAction(nullptr)
     , m_shadedAction(nullptr)
@@ -54,6 +55,23 @@ void MainWindow::newProject()
     m_projectDocument->reset();
     refreshViewport();
     statusBar()->showMessage(tr("Started a new project with the default startup solid."), 5000);
+}
+
+void MainWindow::addBoxOperation()
+{
+    const int index = m_projectDocument->project().operationCount();
+    const double length = 120.0 + index * 20.0;
+    const double width = 80.0 + index * 10.0;
+    const double height = 60.0 + index * 5.0;
+
+    if (!m_projectDocument->addBoxOperation(length, width, height))
+    {
+        QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
+        return;
+    }
+
+    refreshViewport();
+    statusBar()->showMessage(tr("Added Box operation: %1 x %2 x %3").arg(length).arg(width).arg(height), 5000);
 }
 
 void MainWindow::showNotImplementedMessage()
@@ -169,6 +187,8 @@ void MainWindow::createActions()
     m_exitAction = new QAction(tr("Exit"), this);
     m_exitAction->setShortcut(QKeySequence::Quit);
 
+    m_addBoxAction = new QAction(tr("Add Box"), this);
+
     m_fitViewAction = new QAction(tr("Fit View"), this);
     m_wireframeAction = new QAction(tr("Wireframe"), this);
     m_shadedAction = new QAction(tr("Shaded"), this);
@@ -178,6 +198,7 @@ void MainWindow::createActions()
     m_isometricViewAction = new QAction(tr("Isometric"), this);
 
     connect(m_newProjectAction, &QAction::triggered, this, &MainWindow::newProject);
+    connect(m_addBoxAction, &QAction::triggered, this, &MainWindow::addBoxOperation);
     connect(m_importStepAction, &QAction::triggered, this, &MainWindow::importStep);
     connect(m_exportStepAction, &QAction::triggered, this, &MainWindow::exportStep);
     connect(m_fitViewAction, &QAction::triggered, m_viewport, &CadViewport::fitAll);
@@ -213,7 +234,8 @@ void MainWindow::createMenus()
     viewMenu->addAction(m_wireframeAction);
     viewMenu->addAction(m_shadedAction);
 
-    menuBar()->addMenu(tr("Model"));
+    QMenu *modelMenu = menuBar()->addMenu(tr("Model"));
+    modelMenu->addAction(m_addBoxAction);
     menuBar()->addMenu(tr("Help"));
 }
 
@@ -222,6 +244,7 @@ void MainWindow::createToolBar()
     QToolBar *mainToolBar = addToolBar(tr("Main Toolbar"));
     mainToolBar->setMovable(false);
     mainToolBar->addAction(m_newProjectAction);
+    mainToolBar->addAction(m_addBoxAction);
     mainToolBar->addAction(m_importStepAction);
     mainToolBar->addAction(m_exportStepAction);
     mainToolBar->addSeparator();
