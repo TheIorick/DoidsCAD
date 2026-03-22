@@ -23,6 +23,7 @@ private slots:
     void showNotImplementedMessage();
     void importStep();
     void exportStep();
+    void updateOperationParameter(int operationId, const QString &name, const QVariant &value);
     void showOperationDetails(int operationId);
     void updateSelectionDescription(const QString &description);
 
@@ -34,11 +35,13 @@ private:
     void configureWindow();
     void refreshViewport();
     void refreshOperationTree();
+    void selectOperation(int operationId);
 
     CadViewport *m_viewport;
     OperationListDock *m_operationDock;
     ProjectDocument *m_projectDocument;
     PropertyEditorDock *m_propertyDock;
+    int m_selectedOperationId;
 
     QAction *m_newProjectAction;
     QAction *m_importStepAction;

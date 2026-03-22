@@ -21,6 +21,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_operationDock(new OperationListDock(this))
     , m_projectDocument(new ProjectDocument())
     , m_propertyDock(new PropertyEditorDock(this))
+    , m_selectedOperationId(-1)
     , m_newProjectAction(nullptr)
     , m_importStepAction(nullptr)
     , m_exportStepAction(nullptr)
@@ -152,12 +153,26 @@ void MainWindow::updateSelectionDescription(const QString &description)
 
 void MainWindow::showOperationDetails(const int operationId)
 {
+    m_selectedOperationId = operationId;
     m_propertyDock->showOperationDetails(m_projectDocument->findOperation(operationId));
     m_viewport->setDisplayedShapeSelected(operationId >= 0);
     m_viewport->setHighlightedShape(m_projectDocument->shapeForOperation(operationId));
 
     if (operationId >= 0)
         statusBar()->showMessage(tr("Operation #%1 selected").arg(operationId), 3000);
+}
+
+void MainWindow::updateOperationParameter(const int operationId, const QString &name, const QVariant &value)
+{
+    if (!m_projectDocument->setOperationParameter(operationId, name, value))
+    {
+        QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
+        return;
+    }
+
+    refreshViewport();
+    selectOperation(operationId);
+    statusBar()->showMessage(tr("Updated %1 for operation #%2").arg(name).arg(operationId), 5000);
 }
 
 void MainWindow::refreshViewport()
@@ -173,6 +188,11 @@ void MainWindow::refreshViewport()
 void MainWindow::refreshOperationTree()
 {
     m_operationDock->setOperations(m_projectDocument->project().operations());
+}
+
+void MainWindow::selectOperation(const int operationId)
+{
+    showOperationDetails(operationId);
 }
 
 void MainWindow::createActions()
@@ -212,6 +232,7 @@ void MainWindow::createActions()
     connect(m_isometricViewAction, &QAction::triggered, m_viewport, &CadViewport::setIsometricView);
     connect(m_viewport, &CadViewport::selectionDescriptionChanged, this, &MainWindow::updateSelectionDescription);
     connect(m_operationDock, &OperationListDock::operationSelected, this, &MainWindow::showOperationDetails);
+    connect(m_propertyDock, &PropertyEditorDock::operationParameterEdited, this, &MainWindow::updateOperationParameter);
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
 }
 

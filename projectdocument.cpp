@@ -37,6 +37,14 @@ bool ProjectDocument::addBoxOperation(const double length, const double width, c
     return rebuild();
 }
 
+bool ProjectDocument::setOperationParameter(const int operationId, const QString &name, const QVariant &value)
+{
+    if (!m_project.setOperationParameter(operationId, name, value))
+        return false;
+
+    return rebuild();
+}
+
 bool ProjectDocument::rebuild()
 {
     m_buildResult = ProjectBuilder::build(m_project, m_importedShapeSnapshot);

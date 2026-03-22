@@ -17,8 +17,10 @@ public:
                      const QVector<OperationParameter> &parameters = {});
 
     const QVector<OperationEntry> &operations() const;
+    OperationEntry *findOperation(int id);
     const OperationEntry *findOperation(int id) const;
     int operationCount() const;
+    bool setOperationParameter(int operationId, const QString &name, const QVariant &value);
 
 private:
     QVector<OperationEntry> m_operations;

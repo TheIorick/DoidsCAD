@@ -16,6 +16,7 @@ public:
     void reset();
     void setShape(const TopoDS_Shape &shape, const QString &description = QString());
     bool addBoxOperation(double length, double width, double height);
+    bool setOperationParameter(int operationId, const QString &name, const QVariant &value);
     bool rebuild();
 
     const TopoDS_Shape &shape() const;
