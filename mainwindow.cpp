@@ -7,6 +7,7 @@
 #include "stepexchange.h"
 
 #include <QAction>
+#include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFileDialog>
@@ -29,6 +30,12 @@ struct PrimitiveParameters
     double x = 0.0;
     double y = 0.0;
     double z = 0.0;
+};
+
+struct BooleanOperationParameters
+{
+    int leftId = -1;
+    int rightId = -1;
 };
 
 QDoubleSpinBox *createSizeSpinBox(const double value)
@@ -94,6 +101,64 @@ bool promptPrimitiveParameters(QWidget *parent,
     parameters->x = xSpinBox->value();
     parameters->y = ySpinBox->value();
     parameters->z = zSpinBox->value();
+    return true;
+}
+
+QVector<OperationEntry> availableBooleanSources(const ProjectModel &projectModel)
+{
+    QVector<OperationEntry> sources;
+
+    for (const OperationEntry &operation : projectModel.operations())
+    {
+        if (operation.type == QLatin1String("fuse") || operation.type == QLatin1String("cut"))
+            continue;
+
+        sources.append(operation);
+    }
+
+    return sources;
+}
+
+bool promptBooleanParameters(QWidget *parent,
+                             const QString &title,
+                             const QVector<OperationEntry> &sources,
+                             BooleanOperationParameters *parameters)
+{
+    if (parameters == nullptr || sources.size() < 2)
+        return false;
+
+    QDialog dialog(parent);
+    dialog.setWindowTitle(title);
+
+    auto *layout = new QFormLayout(&dialog);
+    auto *leftComboBox = new QComboBox(&dialog);
+    auto *rightComboBox = new QComboBox(&dialog);
+
+    for (const OperationEntry &operation : sources)
+    {
+        const QString label = QStringLiteral("#%1 %2").arg(operation.id).arg(operation.label);
+        leftComboBox->addItem(label, operation.id);
+        rightComboBox->addItem(label, operation.id);
+    }
+
+    const int leftIndex = leftComboBox->findData(parameters->leftId);
+    const int rightIndex = rightComboBox->findData(parameters->rightId);
+    leftComboBox->setCurrentIndex(leftIndex >= 0 ? leftIndex : 0);
+    rightComboBox->setCurrentIndex(rightIndex >= 0 ? rightIndex : (rightComboBox->count() > 1 ? 1 : 0));
+
+    layout->addRow(QObject::tr("Left"), leftComboBox);
+    layout->addRow(QObject::tr("Right"), rightComboBox);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addRow(buttons);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted)
+        return false;
+
+    parameters->leftId = leftComboBox->currentData().toInt();
+    parameters->rightId = rightComboBox->currentData().toInt();
     return true;
 }
 }
@@ -221,26 +286,58 @@ void MainWindow::addCylinderOperation()
 
 void MainWindow::addFuseOperation()
 {
-    if (!m_projectDocument->addFuseOperation())
+    const QVector<OperationEntry> sources = availableBooleanSources(m_projectDocument->project());
+    if (sources.size() < 2)
+    {
+        QMessageBox::information(this, tr("Add Fuse"), tr("Fuse requires at least two source operations."));
+        return;
+    }
+
+    BooleanOperationParameters parameters;
+    parameters.leftId = sources.at(sources.size() - 2).id;
+    parameters.rightId = sources.constLast().id;
+    if (!promptBooleanParameters(this, tr("Create Fuse"), sources, &parameters))
+        return;
+
+    if (!m_projectDocument->addFuseOperation(parameters.leftId, parameters.rightId))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
         return;
     }
 
     refreshViewport();
-    statusBar()->showMessage(tr("Added Fuse operation for the last two results."), 5000);
+    statusBar()->showMessage(tr("Added Fuse operation for #%1 and #%2")
+                                 .arg(parameters.leftId)
+                                 .arg(parameters.rightId),
+                             5000);
 }
 
 void MainWindow::addCutOperation()
 {
-    if (!m_projectDocument->addCutOperation())
+    const QVector<OperationEntry> sources = availableBooleanSources(m_projectDocument->project());
+    if (sources.size() < 2)
+    {
+        QMessageBox::information(this, tr("Add Cut"), tr("Cut requires at least two source operations."));
+        return;
+    }
+
+    BooleanOperationParameters parameters;
+    parameters.leftId = sources.at(sources.size() - 2).id;
+    parameters.rightId = sources.constLast().id;
+    if (!promptBooleanParameters(this, tr("Create Cut"), sources, &parameters))
+        return;
+
+    if (!m_projectDocument->addCutOperation(parameters.leftId, parameters.rightId))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
         return;
     }
 
     refreshViewport();
-    statusBar()->showMessage(tr("Added Cut operation for the last two results."), 5000);
+    statusBar()->showMessage(tr("Added Cut operation for #%1 and #%2")
+                                 .arg(parameters.leftId)
+                                 .arg(parameters.rightId),
+                             5000);
 }
 
 void MainWindow::showNotImplementedMessage()

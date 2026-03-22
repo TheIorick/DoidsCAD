@@ -40,8 +40,8 @@ bool ProjectDocument::addBoxOperation(const double length,
                             {QStringLiteral("Width"), width},
                             {QStringLiteral("Height"), height},
                             {QStringLiteral("X"), x},
-                            {QStringLiteral("Y"), 0.0},
-                            {QStringLiteral("Z"), 0.0}});
+                            {QStringLiteral("Y"), y},
+                            {QStringLiteral("Z"), z}});
     return rebuild();
 }
 
@@ -58,12 +58,12 @@ bool ProjectDocument::addCylinderOperation(const double radius,
                            {{QStringLiteral("Radius"), radius},
                             {QStringLiteral("Height"), height},
                             {QStringLiteral("X"), x},
-                            {QStringLiteral("Y"), 0.0},
-                            {QStringLiteral("Z"), 0.0}});
+                            {QStringLiteral("Y"), y},
+                            {QStringLiteral("Z"), z}});
     return rebuild();
 }
 
-bool ProjectDocument::addFuseOperation()
+bool ProjectDocument::addFuseOperation(const int leftId, const int rightId)
 {
     if (m_project.operationCount() < 2)
     {
@@ -71,9 +71,13 @@ bool ProjectDocument::addFuseOperation()
         return false;
     }
 
+    if (leftId <= 0 || rightId <= 0 || leftId == rightId)
+    {
+        m_buildResult.errorMessage = QStringLiteral("Fuse requires two different source operations.");
+        return false;
+    }
+
     const int operationNumber = m_project.operationCount() + 1;
-    const int rightId = m_project.operations().constLast().id;
-    const int leftId = m_project.operations().at(m_project.operations().size() - 2).id;
     m_project.addOperation(QStringLiteral("fuse"),
                            QStringLiteral("Fuse %1").arg(operationNumber),
                            QStringLiteral("Done"),
@@ -82,7 +86,7 @@ bool ProjectDocument::addFuseOperation()
     return rebuild();
 }
 
-bool ProjectDocument::addCutOperation()
+bool ProjectDocument::addCutOperation(const int leftId, const int rightId)
 {
     if (m_project.operationCount() < 2)
     {
@@ -90,14 +94,18 @@ bool ProjectDocument::addCutOperation()
         return false;
     }
 
+    if (leftId <= 0 || rightId <= 0 || leftId == rightId)
+    {
+        m_buildResult.errorMessage = QStringLiteral("Cut requires two different source operations.");
+        return false;
+    }
+
     const int operationNumber = m_project.operationCount() + 1;
-    const int toolId = m_project.operations().constLast().id;
-    const int baseId = m_project.operations().at(m_project.operations().size() - 2).id;
     m_project.addOperation(QStringLiteral("cut"),
                            QStringLiteral("Cut %1").arg(operationNumber),
                            QStringLiteral("Done"),
-                           {{QStringLiteral("LeftId"), baseId},
-                            {QStringLiteral("RightId"), toolId}});
+                           {{QStringLiteral("LeftId"), leftId},
+                            {QStringLiteral("RightId"), rightId}});
     return rebuild();
 }
 
