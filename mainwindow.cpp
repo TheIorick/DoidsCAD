@@ -239,21 +239,22 @@ void MainWindow::selectOperation(const int operationId)
 
 void MainWindow::refreshDisplayedShape()
 {
-    if (m_selectedOperationId >= 0)
-    {
-        const TopoDS_Shape operationShape = m_projectDocument->shapeForOperation(m_selectedOperationId);
-        if (!operationShape.IsNull())
-        {
-            m_viewport->setShape(operationShape);
-            m_viewport->setDisplayedShapeSelected(true);
-            return;
-        }
-    }
-
     if (m_projectDocument->hasShape())
         m_viewport->setShape(m_projectDocument->shape());
     else
         m_viewport->clearShape();
+
+    if (m_selectedOperationId >= 0)
+    {
+        const TopoDS_Shape operationShape = m_projectDocument->shapeForOperation(m_selectedOperationId);
+        m_viewport->setHighlightedShape(operationShape);
+        m_viewport->setDisplayedShapeSelected(!operationShape.IsNull());
+    }
+    else
+    {
+        m_viewport->setHighlightedShape(TopoDS_Shape());
+        m_viewport->setDisplayedShapeSelected(false);
+    }
 }
 
 void MainWindow::createActions()
