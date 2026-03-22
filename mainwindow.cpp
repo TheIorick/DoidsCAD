@@ -30,6 +30,7 @@ struct PrimitiveParameters
     double x = 0.0;
     double y = 0.0;
     double z = 0.0;
+    bool pickInViewport = false;
 };
 
 struct BooleanOperationParameters
@@ -78,14 +79,28 @@ bool promptPrimitiveParameters(QWidget *parent,
     auto *xSpinBox = createPositionSpinBox(parameters->x);
     auto *ySpinBox = createPositionSpinBox(parameters->y);
     auto *zSpinBox = createPositionSpinBox(parameters->z);
+    auto *placementModeComboBox = new QComboBox(&dialog);
+    placementModeComboBox->addItem(QObject::tr("By Coordinates"), false);
+    placementModeComboBox->addItem(QObject::tr("Pick In Viewport"), true);
+    placementModeComboBox->setCurrentIndex(parameters->pickInViewport ? 1 : 0);
 
     layout->addRow(firstLabel, firstSpinBox);
     layout->addRow(secondLabel, secondSpinBox);
     if (thirdSpinBox != nullptr)
         layout->addRow(thirdLabel, thirdSpinBox);
+    layout->addRow(QObject::tr("Placement"), placementModeComboBox);
     layout->addRow(QObject::tr("X"), xSpinBox);
     layout->addRow(QObject::tr("Y"), ySpinBox);
     layout->addRow(QObject::tr("Z"), zSpinBox);
+
+    const auto updateCoordinateState = [=]() {
+        const bool pickInViewport = placementModeComboBox->currentData().toBool();
+        xSpinBox->setEnabled(!pickInViewport);
+        ySpinBox->setEnabled(!pickInViewport);
+        zSpinBox->setEnabled(!pickInViewport);
+    };
+    QObject::connect(placementModeComboBox, &QComboBox::currentIndexChanged, &dialog, updateCoordinateState);
+    updateCoordinateState();
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
     layout->addRow(buttons);
@@ -101,6 +116,7 @@ bool promptPrimitiveParameters(QWidget *parent,
     parameters->x = xSpinBox->value();
     parameters->y = ySpinBox->value();
     parameters->z = zSpinBox->value();
+    parameters->pickInViewport = placementModeComboBox->currentData().toBool();
     return true;
 }
 
@@ -226,6 +242,17 @@ void MainWindow::addBoxOperation()
                                    &parameters))
         return;
 
+    if (parameters.pickInViewport)
+    {
+        m_pendingPrimitiveCreation.type = PendingPrimitiveType::Box;
+        m_pendingPrimitiveCreation.firstSize = parameters.firstSize;
+        m_pendingPrimitiveCreation.secondSize = parameters.secondSize;
+        m_pendingPrimitiveCreation.thirdSize = parameters.thirdSize;
+        m_viewport->startPlacementPick();
+        statusBar()->showMessage(tr("Click in viewport to place the box on Z=0 plane. Right click cancels."), 8000);
+        return;
+    }
+
     if (!m_projectDocument->addBoxOperation(parameters.firstSize,
                                             parameters.secondSize,
                                             parameters.thirdSize,
@@ -263,6 +290,17 @@ void MainWindow::addCylinderOperation()
                                    QString(),
                                    &parameters))
         return;
+
+    if (parameters.pickInViewport)
+    {
+        m_pendingPrimitiveCreation.type = PendingPrimitiveType::Cylinder;
+        m_pendingPrimitiveCreation.firstSize = parameters.firstSize;
+        m_pendingPrimitiveCreation.secondSize = parameters.secondSize;
+        m_pendingPrimitiveCreation.thirdSize = 0.0;
+        m_viewport->startPlacementPick();
+        statusBar()->showMessage(tr("Click in viewport to place the cylinder on Z=0 plane. Right click cancels."), 8000);
+        return;
+    }
 
     if (!m_projectDocument->addCylinderOperation(parameters.firstSize,
                                                  parameters.secondSize,
@@ -416,6 +454,17 @@ void MainWindow::updateSelectionDescription(const QString &description)
     statusBar()->showMessage(tr("Selection: %1").arg(description), 3000);
 }
 
+void MainWindow::finishViewportPlacement(const double x, const double y, const double z)
+{
+    createPrimitiveAtPickedPoint(x, y, z);
+}
+
+void MainWindow::cancelViewportPlacement()
+{
+    m_pendingPrimitiveCreation = PendingPrimitiveCreation();
+    statusBar()->showMessage(tr("Viewport placement canceled."), 4000);
+}
+
 void MainWindow::showOperationDetails(const int operationId)
 {
     m_selectedOperationId = operationId;
@@ -479,6 +528,58 @@ void MainWindow::refreshDisplayedShape()
     }
 }
 
+void MainWindow::createPrimitiveAtPickedPoint(const double x, const double y, const double z)
+{
+    const PendingPrimitiveCreation pending = m_pendingPrimitiveCreation;
+    m_pendingPrimitiveCreation = PendingPrimitiveCreation();
+
+    bool success = false;
+    QString statusMessage;
+    if (pending.type == PendingPrimitiveType::Box)
+    {
+        success = m_projectDocument->addBoxOperation(pending.firstSize,
+                                                     pending.secondSize,
+                                                     pending.thirdSize,
+                                                     x,
+                                                     y,
+                                                     z);
+        statusMessage = tr("Added Box operation: %1 x %2 x %3 at (%4, %5, %6)")
+                            .arg(pending.firstSize)
+                            .arg(pending.secondSize)
+                            .arg(pending.thirdSize)
+                            .arg(x)
+                            .arg(y)
+                            .arg(z);
+    }
+    else if (pending.type == PendingPrimitiveType::Cylinder)
+    {
+        success = m_projectDocument->addCylinderOperation(pending.firstSize,
+                                                          pending.secondSize,
+                                                          x,
+                                                          y,
+                                                          z);
+        statusMessage = tr("Added Cylinder operation: R%1 H%2 at (%3, %4, %5)")
+                            .arg(pending.firstSize)
+                            .arg(pending.secondSize)
+                            .arg(x)
+                            .arg(y)
+                            .arg(z);
+    }
+    else
+    {
+        return;
+    }
+
+    if (!success)
+    {
+        QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
+        return;
+    }
+
+    refreshViewport();
+    statusBar()->showMessage(statusMessage, 5000);
+}
+
 void MainWindow::createActions()
 {
     m_newProjectAction = new QAction(tr("New Project"), this);
@@ -521,6 +622,8 @@ void MainWindow::createActions()
     connect(m_rightViewAction, &QAction::triggered, m_viewport, &CadViewport::setRightView);
     connect(m_isometricViewAction, &QAction::triggered, m_viewport, &CadViewport::setIsometricView);
     connect(m_viewport, &CadViewport::selectionDescriptionChanged, this, &MainWindow::updateSelectionDescription);
+    connect(m_viewport, &CadViewport::placementPointPicked, this, &MainWindow::finishViewportPlacement);
+    connect(m_viewport, &CadViewport::placementCanceled, this, &MainWindow::cancelViewportPlacement);
     connect(m_operationDock, &OperationListDock::operationSelected, this, &MainWindow::showOperationDetails);
     connect(m_propertyDock, &PropertyEditorDock::operationParameterEdited, this, &MainWindow::updateOperationParameter);
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);

@@ -9,6 +9,7 @@
 #include <OpenGl_GraphicDriver.hxx>
 #include <Quantity_Color.hxx>
 #include <TopAbs_ShapeEnum.hxx>
+#include <cmath>
 #include <QGuiApplication>
 #include <QMouseEvent>
 #include <QPaintEngine>
@@ -85,6 +86,7 @@ QString shapeTypeToText(const TopAbs_ShapeEnum shapeType)
 CadViewport::CadViewport(QWidget *parent)
     : QWidget(parent, Qt::MSWindowsOwnDC)
     , m_isDragging(false)
+    , m_isPlacementPickMode(false)
 {
     setContentsMargins(0, 0, 0, 0);
     setMouseTracking(true);
@@ -214,6 +216,21 @@ void CadViewport::setHighlightedShape(const TopoDS_Shape &shape)
     update();
 }
 
+void CadViewport::startPlacementPick()
+{
+    m_isPlacementPickMode = true;
+    setCursor(Qt::CrossCursor);
+}
+
+void CadViewport::cancelPlacementPick()
+{
+    if (!m_isPlacementPickMode)
+        return;
+
+    m_isPlacementPickMode = false;
+    unsetCursor();
+}
+
 void CadViewport::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
@@ -247,6 +264,29 @@ void CadViewport::mousePressEvent(QMouseEvent *event)
 
 void CadViewport::mouseReleaseEvent(QMouseEvent *event)
 {
+    if (m_isPlacementPickMode && event->button() == Qt::RightButton)
+    {
+        cancelPlacementPick();
+        emit placementCanceled();
+        QWidget::mouseReleaseEvent(event);
+        return;
+    }
+
+    if (m_isPlacementPickMode
+        && event->button() == Qt::LeftButton
+        && !m_isDragging)
+    {
+        double x = 0.0;
+        double y = 0.0;
+        double z = 0.0;
+        if (tryPickPlacementPoint(event->position(), &x, &y, &z))
+        {
+            cancelPlacementPick();
+            emit placementPointPicked(x, y, z);
+            return;
+        }
+    }
+
     if (event->button() == Qt::LeftButton
         && !m_context.IsNull()
         && !m_view.IsNull()
@@ -328,6 +368,37 @@ void CadViewport::clearHighlightPresentation()
         m_context->Remove(m_highlightPresentation, Standard_False);
 
     m_highlightPresentation.Nullify();
+}
+
+bool CadViewport::tryPickPlacementPoint(const QPointF &position, double *x, double *y, double *z) const
+{
+    if (m_view.IsNull() || x == nullptr || y == nullptr || z == nullptr)
+        return false;
+
+    Standard_Real pointX = 0.0;
+    Standard_Real pointY = 0.0;
+    Standard_Real pointZ = 0.0;
+    Standard_Real dirX = 0.0;
+    Standard_Real dirY = 0.0;
+    Standard_Real dirZ = 0.0;
+    const Graphic3d_Vec2i mousePosition = devicePosition(position);
+    m_view->ConvertWithProj(mousePosition.x(), mousePosition.y(), pointX, pointY, pointZ, dirX, dirY, dirZ);
+
+    constexpr double zPlane = 0.0;
+    constexpr double epsilon = 1e-7;
+    if (std::abs(dirZ) < epsilon)
+    {
+        *x = pointX;
+        *y = pointY;
+        *z = zPlane;
+        return true;
+    }
+
+    const double scale = (zPlane - pointZ) / dirZ;
+    *x = pointX + dirX * scale;
+    *y = pointY + dirY * scale;
+    *z = zPlane;
+    return true;
 }
 
 void CadViewport::updateSelectionDescription()

@@ -24,6 +24,8 @@ public:
 
 signals:
     void selectionDescriptionChanged(const QString &description);
+    void placementPointPicked(double x, double y, double z);
+    void placementCanceled();
 
 public slots:
     void fitAll();
@@ -35,6 +37,8 @@ public slots:
     void setIsometricView();
     void setDisplayedShapeSelected(bool selected);
     void setHighlightedShape(const TopoDS_Shape &shape);
+    void startPlacementPick();
+    void cancelPlacementPick();
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
@@ -49,6 +53,7 @@ private:
     void setViewOrientation(V3d_TypeOfOrientation orientation);
     void updateSelectionDescription();
     void clearHighlightPresentation();
+    bool tryPickPlacementPoint(const QPointF &position, double *x, double *y, double *z) const;
 
     Handle(AIS_InteractiveContext) m_context;
     Handle(V3d_Viewer) m_viewer;
@@ -58,6 +63,7 @@ private:
     TopoDS_Shape m_currentShape;
     QPointF m_lastPressPosition;
     bool m_isDragging;
+    bool m_isPlacementPickMode;
 };
 
 #endif // CADVIEWPORT_H
