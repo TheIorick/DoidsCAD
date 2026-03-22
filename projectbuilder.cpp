@@ -1,10 +1,12 @@
 #include "projectbuilder.h"
 
+#include <BRep_Builder.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
+#include <TopoDS_Compound.hxx>
 #include <gp_Trsf.hxx>
 
 namespace
@@ -29,6 +31,60 @@ QString parameterText(const OperationEntry &operation, const QString &name)
     }
 
     return QString();
+}
+
+bool isBooleanOperation(const QString &type)
+{
+    return type == QStringLiteral("fuse") || type == QStringLiteral("cut");
+}
+
+QVector<int> referencedOperationIds(const ProjectModel &projectModel)
+{
+    QVector<int> ids;
+
+    for (const OperationEntry &operation : projectModel.operations())
+    {
+        if (!isBooleanOperation(operation.type))
+            continue;
+
+        const int leftId = static_cast<int>(parameterValue(operation, QStringLiteral("LeftId"), -1));
+        const int rightId = static_cast<int>(parameterValue(operation, QStringLiteral("RightId"), -1));
+
+        if (leftId >= 0 && !ids.contains(leftId))
+            ids.append(leftId);
+
+        if (rightId >= 0 && !ids.contains(rightId))
+            ids.append(rightId);
+    }
+
+    return ids;
+}
+
+TopoDS_Shape composeSceneShape(const BuildResult &result, const ProjectModel &projectModel)
+{
+    const QVector<int> referencedIds = referencedOperationIds(projectModel);
+    QVector<TopoDS_Shape> topLevelShapes;
+
+    for (const OperationBuildShape &entry : result.operationShapes)
+    {
+        if (!referencedIds.contains(entry.operationId) && !entry.shape.IsNull())
+            topLevelShapes.append(entry.shape);
+    }
+
+    if (topLevelShapes.isEmpty())
+        return TopoDS_Shape();
+
+    if (topLevelShapes.size() == 1)
+        return topLevelShapes.constFirst();
+
+    BRep_Builder builder;
+    TopoDS_Compound compound;
+    builder.MakeCompound(compound);
+
+    for (const TopoDS_Shape &shape : topLevelShapes)
+        builder.Add(compound, shape);
+
+    return compound;
 }
 
 TopoDS_Shape translatedShape(const TopoDS_Shape &shape, const OperationEntry &operation)
@@ -145,9 +201,9 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
         }
 
         result.operationShapes.append({operation.id, operationShape});
-        result.shape = operationShape;
     }
 
+    result.shape = composeSceneShape(result, projectModel);
     result.success = !result.shape.IsNull();
     return result;
 }
