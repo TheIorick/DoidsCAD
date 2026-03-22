@@ -6,6 +6,8 @@
 #include <STEPControl_Writer.hxx>
 #include <Standard_Failure.hxx>
 
+#include <QObject>
+
 namespace StepExchange
 {
 bool importStep(const QString &filePath, TopoDS_Shape &shape, QString *errorMessage)
