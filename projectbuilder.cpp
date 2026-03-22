@@ -1,8 +1,10 @@
 #include "projectbuilder.h"
 
 #include <BRepAlgoAPI_Fuse.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
+#include <gp_Trsf.hxx>
 
 namespace
 {
@@ -27,6 +29,28 @@ QString parameterText(const OperationEntry &operation, const QString &name)
 
     return QString();
 }
+
+TopoDS_Shape translatedShape(const TopoDS_Shape &shape, const OperationEntry &operation)
+{
+    const double x = parameterValue(operation, QStringLiteral("X"), 0.0);
+    const double y = parameterValue(operation, QStringLiteral("Y"), 0.0);
+    const double z = parameterValue(operation, QStringLiteral("Z"), 0.0);
+
+    gp_Trsf transform;
+    transform.SetTranslation(gp_Vec(x, y, z));
+    return BRepBuilderAPI_Transform(shape, transform, Standard_True).Shape();
+}
+
+TopoDS_Shape findBuiltShape(const BuildResult &result, const int operationId)
+{
+    for (const OperationBuildShape &entry : result.operationShapes)
+    {
+        if (entry.operationId == operationId)
+            return entry.shape;
+    }
+
+    return TopoDS_Shape();
+}
 }
 
 BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS_Shape &importedShapeSnapshot)
@@ -48,14 +72,14 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
             const double length = parameterValue(operation, QStringLiteral("Length"), 120.0);
             const double width = parameterValue(operation, QStringLiteral("Width"), 80.0);
             const double height = parameterValue(operation, QStringLiteral("Height"), 60.0);
-            operationShape = BRepPrimAPI_MakeBox(length, width, height).Shape();
+            operationShape = translatedShape(BRepPrimAPI_MakeBox(length, width, height).Shape(), operation);
             result.description = operation.label;
         }
         else if (operation.type == QStringLiteral("cylinder"))
         {
             const double radius = parameterValue(operation, QStringLiteral("Radius"), 40.0);
             const double height = parameterValue(operation, QStringLiteral("Height"), 100.0);
-            operationShape = BRepPrimAPI_MakeCylinder(radius, height).Shape();
+            operationShape = translatedShape(BRepPrimAPI_MakeCylinder(radius, height).Shape(), operation);
             result.description = operation.label;
         }
         else if (operation.type == QStringLiteral("import_step"))
@@ -65,14 +89,22 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
         }
         else if (operation.type == QStringLiteral("fuse"))
         {
-            if (result.operationShapes.size() < 2)
+            const int leftId = static_cast<int>(parameterValue(operation, QStringLiteral("LeftId"), -1));
+            const int rightId = static_cast<int>(parameterValue(operation, QStringLiteral("RightId"), -1));
+            if (leftId < 0 || rightId < 0 || leftId == rightId)
             {
-                result.errorMessage = QStringLiteral("Fuse requires two previous operation results.");
+                result.errorMessage = QStringLiteral("Fuse requires two different operation ids.");
                 return result;
             }
 
-            const TopoDS_Shape &leftShape = result.operationShapes.at(result.operationShapes.size() - 2).shape;
-            const TopoDS_Shape &rightShape = result.operationShapes.at(result.operationShapes.size() - 1).shape;
+            const TopoDS_Shape leftShape = findBuiltShape(result, leftId);
+            const TopoDS_Shape rightShape = findBuiltShape(result, rightId);
+            if (leftShape.IsNull() || rightShape.IsNull())
+            {
+                result.errorMessage = QStringLiteral("Fuse references unknown operation results.");
+                return result;
+            }
+
             operationShape = BRepAlgoAPI_Fuse(leftShape, rightShape).Shape();
             result.description = operation.label;
         }
