@@ -153,6 +153,7 @@ void MainWindow::updateSelectionDescription(const QString &description)
 void MainWindow::showOperationDetails(const int operationId)
 {
     m_propertyDock->showOperationDetails(m_projectDocument->findOperation(operationId));
+    m_viewport->setDisplayedShapeSelected(operationId >= 0);
 
     if (operationId >= 0)
         statusBar()->showMessage(tr("Operation #%1 selected").arg(operationId), 3000);

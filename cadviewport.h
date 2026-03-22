@@ -33,6 +33,7 @@ public slots:
     void setTopView();
     void setRightView();
     void setIsometricView();
+    void setDisplayedShapeSelected(bool selected);
 
 protected:
     void resizeEvent(QResizeEvent *event) override;

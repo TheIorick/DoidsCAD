@@ -178,6 +178,20 @@ void CadViewport::setIsometricView()
     setViewOrientation(V3d_TypeOfOrientation_Zup_AxoRight);
 }
 
+void CadViewport::setDisplayedShapeSelected(const bool selected)
+{
+    if (m_context.IsNull() || m_shapePresentation.IsNull())
+        return;
+
+    if (selected)
+        m_context->SetSelected(m_shapePresentation, Standard_False);
+    else
+        m_context->ClearSelected(Standard_False);
+
+    updateSelectionDescription();
+    update();
+}
+
 void CadViewport::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
