@@ -36,6 +36,7 @@ private:
     void refreshViewport();
     void refreshOperationTree();
     void selectOperation(int operationId);
+    void refreshDisplayedShape();
 
     CadViewport *m_viewport;
     OperationListDock *m_operationDock;

@@ -154,9 +154,8 @@ void MainWindow::updateSelectionDescription(const QString &description)
 void MainWindow::showOperationDetails(const int operationId)
 {
     m_selectedOperationId = operationId;
+    refreshDisplayedShape();
     m_propertyDock->showOperationDetails(m_projectDocument->findOperation(operationId));
-    m_viewport->setDisplayedShapeSelected(operationId >= 0);
-    m_viewport->setHighlightedShape(m_projectDocument->shapeForOperation(operationId));
 
     if (operationId >= 0)
         statusBar()->showMessage(tr("Operation #%1 selected").arg(operationId), 3000);
@@ -177,11 +176,7 @@ void MainWindow::updateOperationParameter(const int operationId, const QString &
 
 void MainWindow::refreshViewport()
 {
-    if (m_projectDocument->hasShape())
-        m_viewport->setShape(m_projectDocument->shape());
-    else
-        m_viewport->clearShape();
-
+    refreshDisplayedShape();
     refreshOperationTree();
 }
 
@@ -193,6 +188,25 @@ void MainWindow::refreshOperationTree()
 void MainWindow::selectOperation(const int operationId)
 {
     showOperationDetails(operationId);
+}
+
+void MainWindow::refreshDisplayedShape()
+{
+    if (m_selectedOperationId >= 0)
+    {
+        const TopoDS_Shape operationShape = m_projectDocument->shapeForOperation(m_selectedOperationId);
+        if (!operationShape.IsNull())
+        {
+            m_viewport->setShape(operationShape);
+            m_viewport->setDisplayedShapeSelected(true);
+            return;
+        }
+    }
+
+    if (m_projectDocument->hasShape())
+        m_viewport->setShape(m_projectDocument->shape());
+    else
+        m_viewport->clearShape();
 }
 
 void MainWindow::createActions()
