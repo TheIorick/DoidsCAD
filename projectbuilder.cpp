@@ -1,5 +1,6 @@
 #include "projectbuilder.h"
 
+#include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 
@@ -61,6 +62,19 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
         {
             operationShape = importedShapeSnapshot;
             result.description = parameterText(operation, QStringLiteral("Source"));
+        }
+        else if (operation.type == QStringLiteral("fuse"))
+        {
+            if (result.operationShapes.size() < 2)
+            {
+                result.errorMessage = QStringLiteral("Fuse requires two previous operation results.");
+                return result;
+            }
+
+            const TopoDS_Shape &leftShape = result.operationShapes.at(result.operationShapes.size() - 2).shape;
+            const TopoDS_Shape &rightShape = result.operationShapes.at(result.operationShapes.size() - 1).shape;
+            operationShape = BRepAlgoAPI_Fuse(leftShape, rightShape).Shape();
+            result.description = operation.label;
         }
         else
         {

@@ -48,6 +48,21 @@ bool ProjectDocument::addCylinderOperation(const double radius, const double hei
     return rebuild();
 }
 
+bool ProjectDocument::addFuseOperation()
+{
+    if (m_project.operationCount() < 2)
+    {
+        m_buildResult.errorMessage = QStringLiteral("Fuse requires at least two existing operations.");
+        return false;
+    }
+
+    const int operationNumber = m_project.operationCount() + 1;
+    m_project.addOperation(QStringLiteral("fuse"),
+                           QStringLiteral("Fuse %1").arg(operationNumber),
+                           QStringLiteral("Done"));
+    return rebuild();
+}
+
 bool ProjectDocument::setOperationParameter(const int operationId, const QString &name, const QVariant &value)
 {
     if (!m_project.setOperationParameter(operationId, name, value))

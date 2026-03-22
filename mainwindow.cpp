@@ -28,6 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
     , m_exitAction(nullptr)
     , m_addBoxAction(nullptr)
     , m_addCylinderAction(nullptr)
+    , m_addFuseAction(nullptr)
     , m_fitViewAction(nullptr)
     , m_wireframeAction(nullptr)
     , m_shadedAction(nullptr)
@@ -90,6 +91,18 @@ void MainWindow::addCylinderOperation()
 
     refreshViewport();
     statusBar()->showMessage(tr("Added Cylinder operation: R%1 H%2").arg(radius).arg(height), 5000);
+}
+
+void MainWindow::addFuseOperation()
+{
+    if (!m_projectDocument->addFuseOperation())
+    {
+        QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
+        return;
+    }
+
+    refreshViewport();
+    statusBar()->showMessage(tr("Added Fuse operation for the last two results."), 5000);
 }
 
 void MainWindow::showNotImplementedMessage()
@@ -245,6 +258,7 @@ void MainWindow::createActions()
 
     m_addBoxAction = new QAction(tr("Add Box"), this);
     m_addCylinderAction = new QAction(tr("Add Cylinder"), this);
+    m_addFuseAction = new QAction(tr("Add Fuse"), this);
 
     m_fitViewAction = new QAction(tr("Fit View"), this);
     m_wireframeAction = new QAction(tr("Wireframe"), this);
@@ -257,6 +271,7 @@ void MainWindow::createActions()
     connect(m_newProjectAction, &QAction::triggered, this, &MainWindow::newProject);
     connect(m_addBoxAction, &QAction::triggered, this, &MainWindow::addBoxOperation);
     connect(m_addCylinderAction, &QAction::triggered, this, &MainWindow::addCylinderOperation);
+    connect(m_addFuseAction, &QAction::triggered, this, &MainWindow::addFuseOperation);
     connect(m_importStepAction, &QAction::triggered, this, &MainWindow::importStep);
     connect(m_exportStepAction, &QAction::triggered, this, &MainWindow::exportStep);
     connect(m_fitViewAction, &QAction::triggered, m_viewport, &CadViewport::fitAll);
@@ -296,6 +311,7 @@ void MainWindow::createMenus()
     QMenu *modelMenu = menuBar()->addMenu(tr("Model"));
     modelMenu->addAction(m_addBoxAction);
     modelMenu->addAction(m_addCylinderAction);
+    modelMenu->addAction(m_addFuseAction);
     menuBar()->addMenu(tr("Help"));
 }
 
@@ -306,6 +322,7 @@ void MainWindow::createToolBar()
     mainToolBar->addAction(m_newProjectAction);
     mainToolBar->addAction(m_addBoxAction);
     mainToolBar->addAction(m_addCylinderAction);
+    mainToolBar->addAction(m_addFuseAction);
     mainToolBar->addAction(m_importStepAction);
     mainToolBar->addAction(m_exportStepAction);
     mainToolBar->addSeparator();

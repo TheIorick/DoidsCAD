@@ -21,6 +21,7 @@ private slots:
     void newProject();
     void addBoxOperation();
     void addCylinderOperation();
+    void addFuseOperation();
     void showNotImplementedMessage();
     void importStep();
     void exportStep();
@@ -51,6 +52,7 @@ private:
     QAction *m_exitAction;
     QAction *m_addBoxAction;
     QAction *m_addCylinderAction;
+    QAction *m_addFuseAction;
     QAction *m_fitViewAction;
     QAction *m_wireframeAction;
     QAction *m_shadedAction;
