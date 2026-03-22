@@ -119,14 +119,18 @@ void PropertyEditorDock::showOperationDetails(const OperationEntry *operation, c
         m_tableWidget->setItem(3 + i, 0, nameItem);
 
         const bool isFuseReference = operation->type == QLatin1String("fuse")
+                                     || operation->type == QLatin1String("cut");
+        const bool isBooleanReference = isFuseReference
                                      && (parameter.name == QLatin1String("LeftId")
                                          || parameter.name == QLatin1String("RightId"));
-        if (isFuseReference)
+        if (isBooleanReference)
         {
             auto *comboBox = new QComboBox(m_tableWidget);
             for (const OperationEntry &candidate : allOperations)
             {
-                if (candidate.id == operation->id || candidate.type == QLatin1String("fuse"))
+                if (candidate.id == operation->id
+                    || candidate.type == QLatin1String("fuse")
+                    || candidate.type == QLatin1String("cut"))
                     continue;
 
                 comboBox->addItem(QStringLiteral("#%1 %2").arg(candidate.id).arg(candidate.label), candidate.id);

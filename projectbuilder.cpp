@@ -1,5 +1,6 @@
 #include "projectbuilder.h"
 
+#include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
@@ -106,6 +107,27 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
             }
 
             operationShape = BRepAlgoAPI_Fuse(leftShape, rightShape).Shape();
+            result.description = operation.label;
+        }
+        else if (operation.type == QStringLiteral("cut"))
+        {
+            const int leftId = static_cast<int>(parameterValue(operation, QStringLiteral("LeftId"), -1));
+            const int rightId = static_cast<int>(parameterValue(operation, QStringLiteral("RightId"), -1));
+            if (leftId < 0 || rightId < 0 || leftId == rightId)
+            {
+                result.errorMessage = QStringLiteral("Cut requires two different operation ids.");
+                return result;
+            }
+
+            const TopoDS_Shape leftShape = findBuiltShape(result, leftId);
+            const TopoDS_Shape rightShape = findBuiltShape(result, rightId);
+            if (leftShape.IsNull() || rightShape.IsNull())
+            {
+                result.errorMessage = QStringLiteral("Cut references unknown operation results.");
+                return result;
+            }
+
+            operationShape = BRepAlgoAPI_Cut(leftShape, rightShape).Shape();
             result.description = operation.label;
         }
         else

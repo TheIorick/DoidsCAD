@@ -18,6 +18,7 @@ public:
     bool addBoxOperation(double length, double width, double height);
     bool addCylinderOperation(double radius, double height);
     bool addFuseOperation();
+    bool addCutOperation();
     bool setOperationParameter(int operationId, const QString &name, const QVariant &value);
     bool rebuild();
 

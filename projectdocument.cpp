@@ -75,6 +75,25 @@ bool ProjectDocument::addFuseOperation()
     return rebuild();
 }
 
+bool ProjectDocument::addCutOperation()
+{
+    if (m_project.operationCount() < 2)
+    {
+        m_buildResult.errorMessage = QStringLiteral("Cut requires at least two existing operations.");
+        return false;
+    }
+
+    const int operationNumber = m_project.operationCount() + 1;
+    const int toolId = m_project.operations().constLast().id;
+    const int baseId = m_project.operations().at(m_project.operations().size() - 2).id;
+    m_project.addOperation(QStringLiteral("cut"),
+                           QStringLiteral("Cut %1").arg(operationNumber),
+                           QStringLiteral("Done"),
+                           {{QStringLiteral("LeftId"), baseId},
+                            {QStringLiteral("RightId"), toolId}});
+    return rebuild();
+}
+
 bool ProjectDocument::setOperationParameter(const int operationId, const QString &name, const QVariant &value)
 {
     if (!m_project.setOperationParameter(operationId, name, value))
