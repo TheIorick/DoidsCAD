@@ -5,10 +5,25 @@
 #include <QFormLayout>
 #include <QFrame>
 #include <QLabel>
+#include <QStringList>
 #include <QVBoxLayout>
 
 namespace
 {
+const QStringList &placementPointOptions()
+{
+    static const QStringList options = {
+        QStringLiteral("Center"),
+        QStringLiteral("Left"),
+        QStringLiteral("Right"),
+        QStringLiteral("Front"),
+        QStringLiteral("Back"),
+        QStringLiteral("Bottom"),
+        QStringLiteral("Top")
+    };
+    return options;
+}
+
 QLabel *createSectionTitle(const QString &text)
 {
     auto *label = new QLabel(text);
@@ -47,6 +62,17 @@ double parameterValue(const OperationEntry &operation, const QString &name, cons
     }
 
     return fallback;
+}
+
+QString parameterText(const OperationEntry &operation, const QString &name)
+{
+    for (const OperationParameter &parameter : operation.parameters)
+    {
+        if (parameter.name == name)
+            return parameter.value.toString();
+    }
+
+    return QString();
 }
 }
 
@@ -139,6 +165,29 @@ QWidget *PropertyEditorDock::createOperationWidget(const OperationEntry *operati
             form->addRow(label, spinBox);
         };
 
+        const auto addTextCombo = [this, operation](QFormLayout *form,
+                                                    const QString &label,
+                                                    const QString &parameterName,
+                                                    const QStringList &options,
+                                                    const QString &currentValue) {
+            auto *comboBox = new QComboBox();
+            for (const QString &option : options)
+                comboBox->addItem(option, option);
+
+            const int comboIndex = comboBox->findData(currentValue);
+            if (comboIndex >= 0)
+                comboBox->setCurrentIndex(comboIndex);
+
+            connect(comboBox,
+                    &QComboBox::currentIndexChanged,
+                    this,
+                    [this, operationId = operation->id, parameterName, comboBox](int) {
+                        if (!m_isUpdating)
+                            emit operationParameterEdited(operationId, parameterName, comboBox->currentData());
+                    });
+            form->addRow(label, comboBox);
+        };
+
         layout->addWidget(createSectionTitle(tr("Geometry")));
         auto *geometryForm = new QFormLayout();
         geometryForm->setContentsMargins(0, 0, 0, 0);
@@ -160,9 +209,60 @@ QWidget *PropertyEditorDock::createOperationWidget(const OperationEntry *operati
         layout->addWidget(createSectionTitle(tr("Placement")));
         auto *placementForm = new QFormLayout();
         placementForm->setContentsMargins(0, 0, 0, 0);
-        addNumericRow(placementForm, tr("X"), QStringLiteral("X"), parameterValue(*operation, QStringLiteral("X"), 0.0), true);
-        addNumericRow(placementForm, tr("Y"), QStringLiteral("Y"), parameterValue(*operation, QStringLiteral("Y"), 0.0), true);
-        addNumericRow(placementForm, tr("Z"), QStringLiteral("Z"), parameterValue(*operation, QStringLiteral("Z"), 0.0), true);
+        const QString placementMode = parameterText(*operation, QStringLiteral("PlacementMode")).toLower();
+        addTextCombo(placementForm,
+                     tr("Mode"),
+                     QStringLiteral("PlacementMode"),
+                     {QStringLiteral("absolute"), QStringLiteral("relative")},
+                     placementMode.isEmpty() ? QStringLiteral("absolute") : placementMode);
+
+        if (placementMode == QLatin1String("relative"))
+        {
+            auto *referenceComboBox = new QComboBox();
+            for (const OperationEntry &candidate : allOperations)
+            {
+                if (candidate.id == operation->id
+                    || candidate.type == QLatin1String("fuse")
+                    || candidate.type == QLatin1String("cut"))
+                    continue;
+
+                referenceComboBox->addItem(QStringLiteral("#%1 %2").arg(candidate.id).arg(candidate.label), candidate.id);
+            }
+
+            const int currentReferenceId = static_cast<int>(parameterValue(*operation, QStringLiteral("ReferenceId"), -1));
+            const int comboIndex = referenceComboBox->findData(currentReferenceId);
+            if (comboIndex >= 0)
+                referenceComboBox->setCurrentIndex(comboIndex);
+
+            connect(referenceComboBox,
+                    &QComboBox::currentIndexChanged,
+                    this,
+                    [this, operationId = operation->id, referenceComboBox](int) {
+                        if (!m_isUpdating)
+                            emit operationParameterEdited(operationId, QStringLiteral("ReferenceId"), referenceComboBox->currentData());
+                    });
+            placementForm->addRow(tr("Reference"), referenceComboBox);
+
+            addTextCombo(placementForm,
+                         tr("Reference Point"),
+                         QStringLiteral("ReferencePoint"),
+                         placementPointOptions(),
+                         parameterText(*operation, QStringLiteral("ReferencePoint")));
+            addTextCombo(placementForm,
+                         tr("Self Point"),
+                         QStringLiteral("SelfPoint"),
+                         placementPointOptions(),
+                         parameterText(*operation, QStringLiteral("SelfPoint")));
+            addNumericRow(placementForm, tr("Offset X"), QStringLiteral("X"), parameterValue(*operation, QStringLiteral("X"), 0.0), true);
+            addNumericRow(placementForm, tr("Offset Y"), QStringLiteral("Y"), parameterValue(*operation, QStringLiteral("Y"), 0.0), true);
+            addNumericRow(placementForm, tr("Offset Z"), QStringLiteral("Z"), parameterValue(*operation, QStringLiteral("Z"), 0.0), true);
+        }
+        else
+        {
+            addNumericRow(placementForm, tr("X"), QStringLiteral("X"), parameterValue(*operation, QStringLiteral("X"), 0.0), true);
+            addNumericRow(placementForm, tr("Y"), QStringLiteral("Y"), parameterValue(*operation, QStringLiteral("Y"), 0.0), true);
+            addNumericRow(placementForm, tr("Z"), QStringLiteral("Z"), parameterValue(*operation, QStringLiteral("Z"), 0.0), true);
+        }
         layout->addLayout(placementForm);
     }
     else if (operation->type == QLatin1String("fuse") || operation->type == QLatin1String("cut"))

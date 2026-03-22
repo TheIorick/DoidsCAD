@@ -631,7 +631,11 @@ void MainWindow::createActions()
     connect(m_viewport, &CadViewport::placementPointPicked, this, &MainWindow::finishViewportPlacement);
     connect(m_viewport, &CadViewport::placementCanceled, this, &MainWindow::cancelViewportPlacement);
     connect(m_operationDock, &OperationListDock::operationSelected, this, &MainWindow::showOperationDetails);
-    connect(m_propertyDock, &PropertyEditorDock::operationParameterEdited, this, &MainWindow::updateOperationParameter);
+    connect(m_propertyDock,
+            &PropertyEditorDock::operationParameterEdited,
+            this,
+            &MainWindow::updateOperationParameter,
+            Qt::QueuedConnection);
     connect(m_exitAction, &QAction::triggered, this, &QWidget::close);
 }
 
