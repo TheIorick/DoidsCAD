@@ -1,131 +1,179 @@
 #include "propertyeditordock.h"
 
-#include <QAbstractItemView>
 #include <QComboBox>
-#include <QHeaderView>
-#include <QTableWidget>
-#include <QTableWidgetItem>
+#include <QDoubleSpinBox>
+#include <QFormLayout>
+#include <QFrame>
+#include <QLabel>
+#include <QVBoxLayout>
+
+namespace
+{
+QLabel *createSectionTitle(const QString &text)
+{
+    auto *label = new QLabel(text);
+    QFont font = label->font();
+    font.setBold(true);
+    label->setFont(font);
+    return label;
+}
+
+QDoubleSpinBox *createDimensionSpinBox(const double value)
+{
+    auto *spinBox = new QDoubleSpinBox();
+    spinBox->setDecimals(2);
+    spinBox->setRange(0.1, 1000000.0);
+    spinBox->setValue(value);
+    spinBox->setSingleStep(10.0);
+    return spinBox;
+}
+
+QDoubleSpinBox *createPositionSpinBox(const double value)
+{
+    auto *spinBox = new QDoubleSpinBox();
+    spinBox->setDecimals(2);
+    spinBox->setRange(-1000000.0, 1000000.0);
+    spinBox->setValue(value);
+    spinBox->setSingleStep(10.0);
+    return spinBox;
+}
+
+double parameterValue(const OperationEntry &operation, const QString &name, const double fallback)
+{
+    for (const OperationParameter &parameter : operation.parameters)
+    {
+        if (parameter.name == name)
+            return parameter.value.toDouble();
+    }
+
+    return fallback;
+}
+}
 
 PropertyEditorDock::PropertyEditorDock(QWidget *parent)
     : QDockWidget(tr("Properties"), parent)
-    , m_tableWidget(new QTableWidget(4, 2, this))
-    , m_currentOperationId(-1)
+    , m_containerWidget(new QWidget(this))
+    , m_rootLayout(new QVBoxLayout())
+    , m_selectionValueLabel(new QLabel(tr("None"), this))
+    , m_detailsWidget(nullptr)
     , m_isUpdating(false)
 {
-    m_tableWidget->setHorizontalHeaderLabels({tr("Parameter"), tr("Value")});
-    m_tableWidget->verticalHeader()->setVisible(false);
-    m_tableWidget->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    m_tableWidget->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    m_tableWidget->setEditTriggers(QAbstractItemView::DoubleClicked
-                                   | QAbstractItemView::EditKeyPressed
-                                   | QAbstractItemView::SelectedClicked);
+    m_rootLayout->setContentsMargins(12, 12, 12, 12);
+    m_rootLayout->setSpacing(12);
 
-    m_tableWidget->setItem(0, 0, new QTableWidgetItem(tr("Selection")));
-    m_tableWidget->setItem(0, 1, new QTableWidgetItem(tr("None")));
-    m_tableWidget->setItem(1, 0, new QTableWidgetItem(tr("Format")));
-    m_tableWidget->setItem(1, 1, new QTableWidgetItem(tr("STEP")));
-    m_tableWidget->setItem(2, 0, new QTableWidgetItem(tr("Compiler")));
-    m_tableWidget->setItem(2, 1, new QTableWidgetItem(tr("MSVC")));
-    m_tableWidget->setItem(3, 0, new QTableWidgetItem(tr("Viewer")));
-    m_tableWidget->setItem(3, 1, new QTableWidgetItem(tr("OpenCascade")));
-    connect(m_tableWidget, &QTableWidget::cellChanged, this, &PropertyEditorDock::handleCellChanged);
+    auto *selectionTitle = createSectionTitle(tr("Selection"));
+    m_rootLayout->addWidget(selectionTitle);
+    m_rootLayout->addWidget(m_selectionValueLabel);
 
-    setWidget(m_tableWidget);
+    auto *separator = new QFrame(this);
+    separator->setFrameShape(QFrame::HLine);
+    separator->setFrameShadow(QFrame::Sunken);
+    m_rootLayout->addWidget(separator);
+
+    replaceDetailsWidget(createPlaceholderWidget());
+
+    m_rootLayout->addStretch();
+    m_containerWidget->setLayout(m_rootLayout);
+    setWidget(m_containerWidget);
 }
 
 void PropertyEditorDock::setSelectionDescription(const QString &description)
 {
-    QTableWidgetItem *selectionValueItem = m_tableWidget->item(0, 1);
-    if (selectionValueItem == nullptr)
-    {
-        selectionValueItem = new QTableWidgetItem();
-        m_tableWidget->setItem(0, 1, selectionValueItem);
-    }
-
-    selectionValueItem->setText(description);
+    m_selectionValueLabel->setText(description);
 }
 
 void PropertyEditorDock::showOperationDetails(const OperationEntry *operation, const QVector<OperationEntry> &allOperations)
 {
     m_isUpdating = true;
-    for (int row = 0; row < m_tableWidget->rowCount(); ++row)
-        m_tableWidget->removeCellWidget(row, 1);
+    replaceDetailsWidget(operation == nullptr ? createPlaceholderWidget()
+                                             : createOperationWidget(operation, allOperations));
+    m_isUpdating = false;
+}
 
-    m_tableWidget->clearContents();
+QWidget *PropertyEditorDock::createPlaceholderWidget() const
+{
+    auto *widget = new QWidget();
+    auto *layout = new QVBoxLayout(widget);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(8);
+    layout->addWidget(createSectionTitle(tr("Document")));
+    layout->addWidget(new QLabel(tr("Format: STEP")));
+    layout->addWidget(new QLabel(tr("Compiler: MSVC")));
+    layout->addWidget(new QLabel(tr("Viewer: OpenCascade")));
+    layout->addStretch();
+    return widget;
+}
 
-    if (operation == nullptr)
+QWidget *PropertyEditorDock::createOperationWidget(const OperationEntry *operation,
+                                                   const QVector<OperationEntry> &allOperations)
+{
+    auto *widget = new QWidget();
+    auto *layout = new QVBoxLayout(widget);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(12);
+
+    layout->addWidget(createSectionTitle(tr("Operation")));
+
+    auto *metaForm = new QFormLayout();
+    metaForm->setContentsMargins(0, 0, 0, 0);
+    metaForm->addRow(tr("Name"), new QLabel(operation->label));
+    metaForm->addRow(tr("Type"), new QLabel(operation->type));
+    metaForm->addRow(tr("State"), new QLabel(operation->state));
+    layout->addLayout(metaForm);
+
+    if (operation->type == QLatin1String("box") || operation->type == QLatin1String("cylinder"))
     {
-        m_currentOperationId = -1;
-        m_tableWidget->setRowCount(4);
-        auto *label0 = new QTableWidgetItem(tr("Selection"));
-        auto *value0 = new QTableWidgetItem(tr("None"));
-        auto *label1 = new QTableWidgetItem(tr("Format"));
-        auto *value1 = new QTableWidgetItem(tr("STEP"));
-        auto *label2 = new QTableWidgetItem(tr("Compiler"));
-        auto *value2 = new QTableWidgetItem(tr("MSVC"));
-        auto *label3 = new QTableWidgetItem(tr("Viewer"));
-        auto *value3 = new QTableWidgetItem(tr("OpenCascade"));
+        const auto addNumericRow = [this, operation](QFormLayout *form,
+                                                     const QString &label,
+                                                     const QString &parameterName,
+                                                     const double value,
+                                                     const bool isPosition) {
+            QDoubleSpinBox *spinBox = isPosition ? createPositionSpinBox(value) : createDimensionSpinBox(value);
+            connect(spinBox,
+                    &QDoubleSpinBox::valueChanged,
+                    this,
+                    [this, operationId = operation->id, parameterName](double newValue) {
+                        if (!m_isUpdating)
+                            emit operationParameterEdited(operationId, parameterName, newValue);
+                    });
+            form->addRow(label, spinBox);
+        };
 
-        label0->setFlags(label0->flags() & ~Qt::ItemIsEditable);
-        value0->setFlags(value0->flags() & ~Qt::ItemIsEditable);
-        label1->setFlags(label1->flags() & ~Qt::ItemIsEditable);
-        value1->setFlags(value1->flags() & ~Qt::ItemIsEditable);
-        label2->setFlags(label2->flags() & ~Qt::ItemIsEditable);
-        value2->setFlags(value2->flags() & ~Qt::ItemIsEditable);
-        label3->setFlags(label3->flags() & ~Qt::ItemIsEditable);
-        value3->setFlags(value3->flags() & ~Qt::ItemIsEditable);
+        layout->addWidget(createSectionTitle(tr("Geometry")));
+        auto *geometryForm = new QFormLayout();
+        geometryForm->setContentsMargins(0, 0, 0, 0);
 
-        m_tableWidget->setItem(0, 0, label0);
-        m_tableWidget->setItem(0, 1, value0);
-        m_tableWidget->setItem(1, 0, label1);
-        m_tableWidget->setItem(1, 1, value1);
-        m_tableWidget->setItem(2, 0, label2);
-        m_tableWidget->setItem(2, 1, value2);
-        m_tableWidget->setItem(3, 0, label3);
-        m_tableWidget->setItem(3, 1, value3);
-        m_isUpdating = false;
-        return;
-    }
-
-    m_currentOperationId = operation->id;
-    const int rowCount = 3 + operation->parameters.size();
-    m_tableWidget->setRowCount(rowCount);
-    auto *operationLabelItem = new QTableWidgetItem(tr("Operation"));
-    auto *operationValueItem = new QTableWidgetItem(operation->label);
-    auto *typeLabelItem = new QTableWidgetItem(tr("Type"));
-    auto *typeValueItem = new QTableWidgetItem(operation->type);
-    auto *stateLabelItem = new QTableWidgetItem(tr("State"));
-    auto *stateValueItem = new QTableWidgetItem(operation->state);
-
-    operationLabelItem->setFlags(operationLabelItem->flags() & ~Qt::ItemIsEditable);
-    operationValueItem->setFlags(operationValueItem->flags() & ~Qt::ItemIsEditable);
-    typeLabelItem->setFlags(typeLabelItem->flags() & ~Qt::ItemIsEditable);
-    typeValueItem->setFlags(typeValueItem->flags() & ~Qt::ItemIsEditable);
-    stateLabelItem->setFlags(stateLabelItem->flags() & ~Qt::ItemIsEditable);
-    stateValueItem->setFlags(stateValueItem->flags() & ~Qt::ItemIsEditable);
-
-    m_tableWidget->setItem(0, 0, operationLabelItem);
-    m_tableWidget->setItem(0, 1, operationValueItem);
-    m_tableWidget->setItem(1, 0, typeLabelItem);
-    m_tableWidget->setItem(1, 1, typeValueItem);
-    m_tableWidget->setItem(2, 0, stateLabelItem);
-    m_tableWidget->setItem(2, 1, stateValueItem);
-
-    for (int i = 0; i < operation->parameters.size(); ++i)
-    {
-        const OperationParameter &parameter = operation->parameters.at(i);
-        auto *nameItem = new QTableWidgetItem(parameter.name);
-        nameItem->setFlags(nameItem->flags() & ~Qt::ItemIsEditable);
-        m_tableWidget->setItem(3 + i, 0, nameItem);
-
-        const bool isFuseReference = operation->type == QLatin1String("fuse")
-                                     || operation->type == QLatin1String("cut");
-        const bool isBooleanReference = isFuseReference
-                                     && (parameter.name == QLatin1String("LeftId")
-                                         || parameter.name == QLatin1String("RightId"));
-        if (isBooleanReference)
+        if (operation->type == QLatin1String("box"))
         {
-            auto *comboBox = new QComboBox(m_tableWidget);
+            addNumericRow(geometryForm, tr("Length"), QStringLiteral("Length"), parameterValue(*operation, QStringLiteral("Length"), 120.0), false);
+            addNumericRow(geometryForm, tr("Width"), QStringLiteral("Width"), parameterValue(*operation, QStringLiteral("Width"), 80.0), false);
+            addNumericRow(geometryForm, tr("Height"), QStringLiteral("Height"), parameterValue(*operation, QStringLiteral("Height"), 60.0), false);
+        }
+        else
+        {
+            addNumericRow(geometryForm, tr("Radius"), QStringLiteral("Radius"), parameterValue(*operation, QStringLiteral("Radius"), 40.0), false);
+            addNumericRow(geometryForm, tr("Height"), QStringLiteral("Height"), parameterValue(*operation, QStringLiteral("Height"), 100.0), false);
+        }
+
+        layout->addLayout(geometryForm);
+
+        layout->addWidget(createSectionTitle(tr("Placement")));
+        auto *placementForm = new QFormLayout();
+        placementForm->setContentsMargins(0, 0, 0, 0);
+        addNumericRow(placementForm, tr("X"), QStringLiteral("X"), parameterValue(*operation, QStringLiteral("X"), 0.0), true);
+        addNumericRow(placementForm, tr("Y"), QStringLiteral("Y"), parameterValue(*operation, QStringLiteral("Y"), 0.0), true);
+        addNumericRow(placementForm, tr("Z"), QStringLiteral("Z"), parameterValue(*operation, QStringLiteral("Z"), 0.0), true);
+        layout->addLayout(placementForm);
+    }
+    else if (operation->type == QLatin1String("fuse") || operation->type == QLatin1String("cut"))
+    {
+        layout->addWidget(createSectionTitle(tr("Operands")));
+        auto *operandForm = new QFormLayout();
+        operandForm->setContentsMargins(0, 0, 0, 0);
+
+        const auto addOperationCombo = [this, operation, &allOperations, operandForm](const QString &label,
+                                                                                       const QString &parameterName) {
+            auto *comboBox = new QComboBox();
             for (const OperationEntry &candidate : allOperations)
             {
                 if (candidate.id == operation->id
@@ -136,56 +184,45 @@ void PropertyEditorDock::showOperationDetails(const OperationEntry *operation, c
                 comboBox->addItem(QStringLiteral("#%1 %2").arg(candidate.id).arg(candidate.label), candidate.id);
             }
 
-            const int comboIndex = comboBox->findData(parameter.value);
+            const int currentId = static_cast<int>(parameterValue(*operation, parameterName, -1));
+            const int comboIndex = comboBox->findData(currentId);
             if (comboIndex >= 0)
                 comboBox->setCurrentIndex(comboIndex);
 
             connect(comboBox,
                     &QComboBox::currentIndexChanged,
                     this,
-                    [this, operation, comboBox, parameterName = parameter.name](int) {
-                        handleOperationReferenceChanged(operation->id, parameterName, comboBox);
+                    [this, operationId = operation->id, parameterName, comboBox](int) {
+                        if (!m_isUpdating)
+                            emit operationParameterEdited(operationId, parameterName, comboBox->currentData());
                     });
-            m_tableWidget->setCellWidget(3 + i, 1, comboBox);
-        }
-        else
-        {
-            auto *valueItem = new QTableWidgetItem(parameter.value.toString());
-            if (operation->type != QLatin1String("box")
-                && operation->type != QLatin1String("cylinder"))
-                valueItem->setFlags(valueItem->flags() & ~Qt::ItemIsEditable);
 
-            m_tableWidget->setItem(3 + i, 1, valueItem);
-        }
+            operandForm->addRow(label, comboBox);
+        };
+
+        addOperationCombo(tr("Left"), QStringLiteral("LeftId"));
+        addOperationCombo(tr("Right"), QStringLiteral("RightId"));
+        layout->addLayout(operandForm);
+    }
+    else if (operation->type == QLatin1String("import_step"))
+    {
+        layout->addWidget(createSectionTitle(tr("Source")));
+        for (const OperationParameter &parameter : operation->parameters)
+            layout->addWidget(new QLabel(QStringLiteral("%1: %2").arg(parameter.name, parameter.value.toString())));
     }
 
-    m_isUpdating = false;
+    layout->addStretch();
+    return widget;
 }
 
-void PropertyEditorDock::handleCellChanged(const int row, const int column)
+void PropertyEditorDock::replaceDetailsWidget(QWidget *widget)
 {
-    if (m_isUpdating || m_currentOperationId < 0 || column != 1 || row < 3)
-        return;
+    if (m_detailsWidget != nullptr)
+    {
+        m_rootLayout->removeWidget(m_detailsWidget);
+        delete m_detailsWidget;
+    }
 
-    const QTableWidgetItem *nameItem = m_tableWidget->item(row, 0);
-    const QTableWidgetItem *valueItem = m_tableWidget->item(row, 1);
-    if (nameItem == nullptr || valueItem == nullptr)
-        return;
-
-    bool ok = false;
-    const double numericValue = valueItem->text().toDouble(&ok);
-    if (!ok)
-        return;
-
-    emit operationParameterEdited(m_currentOperationId, nameItem->text(), numericValue);
-}
-
-void PropertyEditorDock::handleOperationReferenceChanged(const int operationId,
-                                                         const QString &name,
-                                                         QComboBox *comboBox)
-{
-    if (m_isUpdating || comboBox == nullptr)
-        return;
-
-    emit operationParameterEdited(operationId, name, comboBox->currentData());
+    m_detailsWidget = widget;
+    m_rootLayout->insertWidget(3, m_detailsWidget);
 }

@@ -25,10 +25,14 @@ void ProjectDocument::setShape(const TopoDS_Shape &shape, const QString &descrip
     rebuild();
 }
 
-bool ProjectDocument::addBoxOperation(const double length, const double width, const double height)
+bool ProjectDocument::addBoxOperation(const double length,
+                                      const double width,
+                                      const double height,
+                                      const double x,
+                                      const double y,
+                                      const double z)
 {
     const int operationNumber = m_project.operationCount() + 1;
-    const double x = (operationNumber - 1) * 160.0;
     m_project.addOperation(QStringLiteral("box"),
                            QStringLiteral("Box %1").arg(operationNumber),
                            QStringLiteral("Done"),
@@ -41,10 +45,13 @@ bool ProjectDocument::addBoxOperation(const double length, const double width, c
     return rebuild();
 }
 
-bool ProjectDocument::addCylinderOperation(const double radius, const double height)
+bool ProjectDocument::addCylinderOperation(const double radius,
+                                           const double height,
+                                           const double x,
+                                           const double y,
+                                           const double z)
 {
     const int operationNumber = m_project.operationCount() + 1;
-    const double x = (operationNumber - 1) * 160.0;
     m_project.addOperation(QStringLiteral("cylinder"),
                            QStringLiteral("Cylinder %1").arg(operationNumber),
                            QStringLiteral("Done"),

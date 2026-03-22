@@ -7,13 +7,96 @@
 #include "stepexchange.h"
 
 #include <QAction>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QFileDialog>
+#include <QFormLayout>
 #include <QKeySequence>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QDoubleSpinBox>
 #include <QStatusBar>
 #include <QToolBar>
+
+namespace
+{
+struct PrimitiveParameters
+{
+    double firstSize = 0.0;
+    double secondSize = 0.0;
+    double thirdSize = 0.0;
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+};
+
+QDoubleSpinBox *createSizeSpinBox(const double value)
+{
+    auto *spinBox = new QDoubleSpinBox();
+    spinBox->setDecimals(2);
+    spinBox->setRange(0.1, 1000000.0);
+    spinBox->setSingleStep(10.0);
+    spinBox->setValue(value);
+    return spinBox;
+}
+
+QDoubleSpinBox *createPositionSpinBox(const double value)
+{
+    auto *spinBox = new QDoubleSpinBox();
+    spinBox->setDecimals(2);
+    spinBox->setRange(-1000000.0, 1000000.0);
+    spinBox->setSingleStep(10.0);
+    spinBox->setValue(value);
+    return spinBox;
+}
+
+bool promptPrimitiveParameters(QWidget *parent,
+                               const QString &title,
+                               const QString &firstLabel,
+                               const QString &secondLabel,
+                               const QString &thirdLabel,
+                               PrimitiveParameters *parameters)
+{
+    if (parameters == nullptr)
+        return false;
+
+    QDialog dialog(parent);
+    dialog.setWindowTitle(title);
+
+    auto *layout = new QFormLayout(&dialog);
+    auto *firstSpinBox = createSizeSpinBox(parameters->firstSize);
+    auto *secondSpinBox = createSizeSpinBox(parameters->secondSize);
+    auto *thirdSpinBox = thirdLabel.isEmpty() ? nullptr : createSizeSpinBox(parameters->thirdSize);
+    auto *xSpinBox = createPositionSpinBox(parameters->x);
+    auto *ySpinBox = createPositionSpinBox(parameters->y);
+    auto *zSpinBox = createPositionSpinBox(parameters->z);
+
+    layout->addRow(firstLabel, firstSpinBox);
+    layout->addRow(secondLabel, secondSpinBox);
+    if (thirdSpinBox != nullptr)
+        layout->addRow(thirdLabel, thirdSpinBox);
+    layout->addRow(QObject::tr("X"), xSpinBox);
+    layout->addRow(QObject::tr("Y"), ySpinBox);
+    layout->addRow(QObject::tr("Z"), zSpinBox);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addRow(buttons);
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted)
+        return false;
+
+    parameters->firstSize = firstSpinBox->value();
+    parameters->secondSize = secondSpinBox->value();
+    parameters->thirdSize = thirdSpinBox != nullptr ? thirdSpinBox->value() : 0.0;
+    parameters->x = xSpinBox->value();
+    parameters->y = ySpinBox->value();
+    parameters->z = zSpinBox->value();
+    return true;
+}
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -64,34 +147,76 @@ void MainWindow::newProject()
 void MainWindow::addBoxOperation()
 {
     const int index = m_projectDocument->project().operationCount();
-    const double length = 120.0 + index * 20.0;
-    const double width = 80.0 + index * 10.0;
-    const double height = 60.0 + index * 5.0;
+    PrimitiveParameters parameters;
+    parameters.firstSize = 120.0 + index * 20.0;
+    parameters.secondSize = 80.0 + index * 10.0;
+    parameters.thirdSize = 60.0 + index * 5.0;
+    parameters.x = index * 160.0;
 
-    if (!m_projectDocument->addBoxOperation(length, width, height))
+    if (!promptPrimitiveParameters(this,
+                                   tr("Create Box"),
+                                   tr("Length"),
+                                   tr("Width"),
+                                   tr("Height"),
+                                   &parameters))
+        return;
+
+    if (!m_projectDocument->addBoxOperation(parameters.firstSize,
+                                            parameters.secondSize,
+                                            parameters.thirdSize,
+                                            parameters.x,
+                                            parameters.y,
+                                            parameters.z))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
         return;
     }
 
     refreshViewport();
-    statusBar()->showMessage(tr("Added Box operation: %1 x %2 x %3").arg(length).arg(width).arg(height), 5000);
+    statusBar()->showMessage(tr("Added Box operation: %1 x %2 x %3 at (%4, %5, %6)")
+                                 .arg(parameters.firstSize)
+                                 .arg(parameters.secondSize)
+                                 .arg(parameters.thirdSize)
+                                 .arg(parameters.x)
+                                 .arg(parameters.y)
+                                 .arg(parameters.z),
+                             5000);
 }
 
 void MainWindow::addCylinderOperation()
 {
     const int index = m_projectDocument->project().operationCount();
-    const double radius = 40.0 + index * 5.0;
-    const double height = 100.0 + index * 15.0;
+    PrimitiveParameters parameters;
+    parameters.firstSize = 40.0 + index * 5.0;
+    parameters.secondSize = 100.0 + index * 15.0;
+    parameters.x = index * 160.0;
 
-    if (!m_projectDocument->addCylinderOperation(radius, height))
+    if (!promptPrimitiveParameters(this,
+                                   tr("Create Cylinder"),
+                                   tr("Radius"),
+                                   tr("Height"),
+                                   QString(),
+                                   &parameters))
+        return;
+
+    if (!m_projectDocument->addCylinderOperation(parameters.firstSize,
+                                                 parameters.secondSize,
+                                                 parameters.x,
+                                                 parameters.y,
+                                                 parameters.z))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
         return;
     }
 
     refreshViewport();
-    statusBar()->showMessage(tr("Added Cylinder operation: R%1 H%2").arg(radius).arg(height), 5000);
+    statusBar()->showMessage(tr("Added Cylinder operation: R%1 H%2 at (%3, %4, %5)")
+                                 .arg(parameters.firstSize)
+                                 .arg(parameters.secondSize)
+                                 .arg(parameters.x)
+                                 .arg(parameters.y)
+                                 .arg(parameters.z),
+                             5000);
 }
 
 void MainWindow::addFuseOperation()

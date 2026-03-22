@@ -5,8 +5,9 @@
 
 #include <QDockWidget>
 
-class QComboBox;
-class QTableWidget;
+class QLabel;
+class QVBoxLayout;
+class QWidget;
 
 class PropertyEditorDock : public QDockWidget
 {
@@ -21,11 +22,14 @@ signals:
     void operationParameterEdited(int operationId, const QString &name, const QVariant &value);
 
 private:
-    void handleCellChanged(int row, int column);
-    void handleOperationReferenceChanged(int operationId, const QString &name, QComboBox *comboBox);
+    QWidget *createPlaceholderWidget() const;
+    QWidget *createOperationWidget(const OperationEntry *operation, const QVector<OperationEntry> &allOperations);
+    void replaceDetailsWidget(QWidget *widget);
 
-    QTableWidget *m_tableWidget;
-    int m_currentOperationId;
+    QWidget *m_containerWidget;
+    QVBoxLayout *m_rootLayout;
+    QLabel *m_selectionValueLabel;
+    QWidget *m_detailsWidget;
     bool m_isUpdating;
 };
 
