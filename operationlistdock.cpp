@@ -9,7 +9,7 @@ OperationListDock::OperationListDock(QWidget *parent)
     , m_treeWidget(new QTreeWidget(this))
 {
     m_treeWidget->setColumnCount(2);
-    m_treeWidget->setHeaderLabels({tr("Operation"), tr("State")});
+    m_treeWidget->setHeaderLabels({tr("Operation"), tr("Type")});
     m_treeWidget->header()->setStretchLastSection(false);
     m_treeWidget->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_treeWidget->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
@@ -26,7 +26,7 @@ void OperationListDock::setOperations(const QVector<OperationEntry> &operations)
     for (const OperationEntry &operation : operations)
     {
         const QString title = tr("#%1 %2").arg(operation.id).arg(operation.label);
-        auto *operationItem = new QTreeWidgetItem(rootItem, {title, operation.state});
+        auto *operationItem = new QTreeWidgetItem(rootItem, {title, operation.type});
         operationItem->setData(0, Qt::UserRole, operation.id);
 
         for (const OperationParameter &parameter : operation.parameters)
