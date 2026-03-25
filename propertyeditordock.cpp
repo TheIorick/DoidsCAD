@@ -144,10 +144,11 @@ QWidget *PropertyEditorDock::createOperationWidget(const OperationEntry *operati
     metaForm->setContentsMargins(0, 0, 0, 0);
     metaForm->addRow(tr("Name"), new QLabel(operation->label));
     metaForm->addRow(tr("Type"), new QLabel(operation->type));
-    metaForm->addRow(tr("State"), new QLabel(operation->state));
     layout->addLayout(metaForm);
 
-    if (operation->type == QLatin1String("box") || operation->type == QLatin1String("cylinder"))
+    if (operation->type == QLatin1String("box")
+        || operation->type == QLatin1String("cylinder")
+        || operation->type == QLatin1String("cone"))
     {
         const auto addNumericRow = [this, operation](QFormLayout *form,
                                                      const QString &label,
@@ -198,9 +199,15 @@ QWidget *PropertyEditorDock::createOperationWidget(const OperationEntry *operati
             addNumericRow(geometryForm, tr("Width"), QStringLiteral("Width"), parameterValue(*operation, QStringLiteral("Width"), 80.0), false);
             addNumericRow(geometryForm, tr("Height"), QStringLiteral("Height"), parameterValue(*operation, QStringLiteral("Height"), 60.0), false);
         }
-        else
+        else if (operation->type == QLatin1String("cylinder"))
         {
             addNumericRow(geometryForm, tr("Radius"), QStringLiteral("Radius"), parameterValue(*operation, QStringLiteral("Radius"), 40.0), false);
+            addNumericRow(geometryForm, tr("Height"), QStringLiteral("Height"), parameterValue(*operation, QStringLiteral("Height"), 100.0), false);
+        }
+        else // cone
+        {
+            addNumericRow(geometryForm, tr("Bottom Radius"), QStringLiteral("Radius1"), parameterValue(*operation, QStringLiteral("Radius1"), 40.0), false);
+            addNumericRow(geometryForm, tr("Top Radius"), QStringLiteral("Radius2"), parameterValue(*operation, QStringLiteral("Radius2"), 0.0), false);
             addNumericRow(geometryForm, tr("Height"), QStringLiteral("Height"), parameterValue(*operation, QStringLiteral("Height"), 100.0), false);
         }
 
@@ -221,9 +228,7 @@ QWidget *PropertyEditorDock::createOperationWidget(const OperationEntry *operati
             auto *referenceComboBox = new QComboBox();
             for (const OperationEntry &candidate : allOperations)
             {
-                if (candidate.id == operation->id
-                    || candidate.type == QLatin1String("fuse")
-                    || candidate.type == QLatin1String("cut"))
+                if (candidate.id == operation->id)
                     continue;
 
                 referenceComboBox->addItem(QStringLiteral("#%1 %2").arg(candidate.id).arg(candidate.label), candidate.id);
@@ -276,9 +281,7 @@ QWidget *PropertyEditorDock::createOperationWidget(const OperationEntry *operati
             auto *comboBox = new QComboBox();
             for (const OperationEntry &candidate : allOperations)
             {
-                if (candidate.id == operation->id
-                    || candidate.type == QLatin1String("fuse")
-                    || candidate.type == QLatin1String("cut"))
+                if (candidate.id == operation->id)
                     continue;
 
                 comboBox->addItem(QStringLiteral("#%1 %2").arg(candidate.id).arg(candidate.label), candidate.id);
@@ -303,6 +306,51 @@ QWidget *PropertyEditorDock::createOperationWidget(const OperationEntry *operati
         addOperationCombo(tr("Left"), QStringLiteral("LeftId"));
         addOperationCombo(tr("Right"), QStringLiteral("RightId"));
         layout->addLayout(operandForm);
+    }
+    else if (operation->type == QLatin1String("fillet"))
+    {
+        layout->addWidget(createSectionTitle(tr("Fillet")));
+        auto *filletForm = new QFormLayout();
+        filletForm->setContentsMargins(0, 0, 0, 0);
+
+        auto *sourceComboBox = new QComboBox();
+        for (const OperationEntry &candidate : allOperations)
+        {
+            if (candidate.id == operation->id)
+                continue;
+
+            sourceComboBox->addItem(QStringLiteral("#%1 %2").arg(candidate.id).arg(candidate.label), candidate.id);
+        }
+
+        const int currentSourceId = static_cast<int>(parameterValue(*operation, QStringLiteral("SourceId"), -1));
+        const int sourceIndex = sourceComboBox->findData(currentSourceId);
+        if (sourceIndex >= 0)
+            sourceComboBox->setCurrentIndex(sourceIndex);
+
+        connect(sourceComboBox,
+                &QComboBox::currentIndexChanged,
+                this,
+                [this, operationId = operation->id, sourceComboBox](int) {
+                    if (!m_isUpdating)
+                        emit operationParameterEdited(operationId, QStringLiteral("SourceId"), sourceComboBox->currentData());
+                });
+        filletForm->addRow(tr("Source"), sourceComboBox);
+
+        auto *radiusSpinBox = new QDoubleSpinBox();
+        radiusSpinBox->setDecimals(2);
+        radiusSpinBox->setRange(0.01, 1000.0);
+        radiusSpinBox->setSingleStep(1.0);
+        radiusSpinBox->setValue(parameterValue(*operation, QStringLiteral("Radius"), 5.0));
+        connect(radiusSpinBox,
+                &QDoubleSpinBox::valueChanged,
+                this,
+                [this, operationId = operation->id](double newValue) {
+                    if (!m_isUpdating)
+                        emit operationParameterEdited(operationId, QStringLiteral("Radius"), newValue);
+                });
+        filletForm->addRow(tr("Radius"), radiusSpinBox);
+
+        layout->addLayout(filletForm);
     }
     else if (operation->type == QLatin1String("import_step"))
     {

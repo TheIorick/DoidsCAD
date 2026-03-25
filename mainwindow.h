@@ -21,6 +21,8 @@ private slots:
     void newProject();
     void addBoxOperation();
     void addCylinderOperation();
+    void addConeOperation();
+    void addFilletOperation();
     void addFuseOperation();
     void addCutOperation();
     void showNotImplementedMessage();
@@ -37,7 +39,8 @@ private:
     {
         None,
         Box,
-        Cylinder
+        Cylinder,
+        Cone
     };
 
     struct PendingPrimitiveCreation
@@ -72,6 +75,8 @@ private:
     QAction *m_exitAction;
     QAction *m_addBoxAction;
     QAction *m_addCylinderAction;
+    QAction *m_addConeAction;
+    QAction *m_addFilletAction;
     QAction *m_addFuseAction;
     QAction *m_addCutAction;
     QAction *m_fitViewAction;

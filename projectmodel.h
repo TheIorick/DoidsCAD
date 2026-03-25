@@ -13,7 +13,6 @@ public:
     void clear();
     int addOperation(const QString &type,
                      const QString &label,
-                     const QString &state,
                      const QVector<OperationParameter> &parameters = {});
 
     const QVector<OperationEntry> &operations() const;

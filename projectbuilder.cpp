@@ -5,10 +5,14 @@
 #include <BRepAlgoAPI_Cut.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
+#include <BRepFilletAPI_MakeFillet.hxx>
 #include <Bnd_Box.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
+#include <TopoDS.hxx>
 #include <TopoDS_Compound.hxx>
+#include <TopExp_Explorer.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
 
@@ -41,6 +45,11 @@ bool isBooleanOperation(const QString &type)
     return type == QStringLiteral("fuse") || type == QStringLiteral("cut");
 }
 
+bool isModifierOperation(const QString &type)
+{
+    return type == QStringLiteral("fillet");
+}
+
 TopoDS_Shape findBuiltShape(const BuildResult &result, int operationId);
 
 QVector<int> referencedOperationIds(const ProjectModel &projectModel)
@@ -49,17 +58,24 @@ QVector<int> referencedOperationIds(const ProjectModel &projectModel)
 
     for (const OperationEntry &operation : projectModel.operations())
     {
-        if (!isBooleanOperation(operation.type))
-            continue;
+        if (isBooleanOperation(operation.type))
+        {
+            const int leftId = static_cast<int>(parameterValue(operation, QStringLiteral("LeftId"), -1));
+            const int rightId = static_cast<int>(parameterValue(operation, QStringLiteral("RightId"), -1));
 
-        const int leftId = static_cast<int>(parameterValue(operation, QStringLiteral("LeftId"), -1));
-        const int rightId = static_cast<int>(parameterValue(operation, QStringLiteral("RightId"), -1));
+            if (leftId >= 0 && !ids.contains(leftId))
+                ids.append(leftId);
 
-        if (leftId >= 0 && !ids.contains(leftId))
-            ids.append(leftId);
+            if (rightId >= 0 && !ids.contains(rightId))
+                ids.append(rightId);
+        }
+        else if (isModifierOperation(operation.type))
+        {
+            const int sourceId = static_cast<int>(parameterValue(operation, QStringLiteral("SourceId"), -1));
 
-        if (rightId >= 0 && !ids.contains(rightId))
-            ids.append(rightId);
+            if (sourceId >= 0 && !ids.contains(sourceId))
+                ids.append(sourceId);
+        }
     }
 
     return ids;
@@ -222,6 +238,17 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
                                                   &result.errorMessage);
             result.description = operation.label;
         }
+        else if (operation.type == QStringLiteral("cone"))
+        {
+            const double radius1 = parameterValue(operation, QStringLiteral("Radius1"), 40.0);
+            const double radius2 = parameterValue(operation, QStringLiteral("Radius2"), 0.0);
+            const double height = parameterValue(operation, QStringLiteral("Height"), 100.0);
+            operationShape = placedPrimitiveShape(BRepPrimAPI_MakeCone(radius1, radius2, height).Shape(),
+                                                  operation,
+                                                  result,
+                                                  &result.errorMessage);
+            result.description = operation.label;
+        }
         else if (operation.type == QStringLiteral("import_step"))
         {
             operationShape = importedShapeSnapshot;
@@ -245,7 +272,14 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
                 return result;
             }
 
-            operationShape = BRepAlgoAPI_Fuse(leftShape, rightShape).Shape();
+            BRepAlgoAPI_Fuse fuseOp(leftShape, rightShape);
+            fuseOp.Build();
+            if (!fuseOp.IsDone())
+            {
+                result.errorMessage = QStringLiteral("Fuse operation failed: %1").arg(operation.label);
+                return result;
+            }
+            operationShape = fuseOp.Shape();
             result.description = operation.label;
         }
         else if (operation.type == QStringLiteral("cut"))
@@ -266,7 +300,44 @@ BuildResult ProjectBuilder::build(const ProjectModel &projectModel, const TopoDS
                 return result;
             }
 
-            operationShape = BRepAlgoAPI_Cut(leftShape, rightShape).Shape();
+            BRepAlgoAPI_Cut cutOp(leftShape, rightShape);
+            cutOp.Build();
+            if (!cutOp.IsDone())
+            {
+                result.errorMessage = QStringLiteral("Cut operation failed: %1").arg(operation.label);
+                return result;
+            }
+            operationShape = cutOp.Shape();
+            result.description = operation.label;
+        }
+        else if (operation.type == QStringLiteral("fillet"))
+        {
+            const int sourceId = static_cast<int>(parameterValue(operation, QStringLiteral("SourceId"), -1));
+            if (sourceId < 0)
+            {
+                result.errorMessage = QStringLiteral("Fillet requires a source operation id.");
+                return result;
+            }
+
+            const TopoDS_Shape sourceShape = findBuiltShape(result, sourceId);
+            if (sourceShape.IsNull())
+            {
+                result.errorMessage = QStringLiteral("Fillet references unknown operation result.");
+                return result;
+            }
+
+            const double radius = parameterValue(operation, QStringLiteral("Radius"), 5.0);
+            BRepFilletAPI_MakeFillet filletOp(sourceShape);
+            for (TopExp_Explorer exp(sourceShape, TopAbs_EDGE); exp.More(); exp.Next())
+                filletOp.Add(radius, TopoDS::Edge(exp.Current()));
+
+            filletOp.Build();
+            if (!filletOp.IsDone())
+            {
+                result.errorMessage = QStringLiteral("Fillet operation failed: %1").arg(operation.label);
+                return result;
+            }
+            operationShape = filletOp.Shape();
             result.description = operation.label;
         }
         else

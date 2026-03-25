@@ -7,6 +7,7 @@
 #include "stepexchange.h"
 
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <QAction>
 #include <QComboBox>
@@ -124,17 +125,7 @@ bool promptPrimitiveParameters(QWidget *parent,
 
 QVector<OperationEntry> availableBooleanSources(const ProjectModel &projectModel)
 {
-    QVector<OperationEntry> sources;
-
-    for (const OperationEntry &operation : projectModel.operations())
-    {
-        if (operation.type == QLatin1String("fuse") || operation.type == QLatin1String("cut"))
-            continue;
-
-        sources.append(operation);
-    }
-
-    return sources;
+    return projectModel.operations();
 }
 
 bool promptBooleanParameters(QWidget *parent,
@@ -194,6 +185,8 @@ MainWindow::MainWindow(QWidget *parent)
     , m_exitAction(nullptr)
     , m_addBoxAction(nullptr)
     , m_addCylinderAction(nullptr)
+    , m_addConeAction(nullptr)
+    , m_addFilletAction(nullptr)
     , m_addFuseAction(nullptr)
     , m_addCutAction(nullptr)
     , m_fitViewAction(nullptr)
@@ -326,6 +319,106 @@ void MainWindow::addCylinderOperation()
                                  .arg(parameters.y)
                                  .arg(parameters.z),
                              5000);
+}
+
+void MainWindow::addConeOperation()
+{
+    const int index = m_projectDocument->project().operationCount();
+    PrimitiveParameters parameters;
+    parameters.firstSize = 40.0 + index * 5.0;
+    parameters.secondSize = 0.0;
+    parameters.thirdSize = 100.0 + index * 15.0;
+    parameters.x = index * 160.0;
+
+    if (!promptPrimitiveParameters(this,
+                                   tr("Create Cone"),
+                                   tr("Bottom Radius"),
+                                   tr("Top Radius"),
+                                   tr("Height"),
+                                   &parameters))
+        return;
+
+    if (parameters.pickInViewport)
+    {
+        m_pendingPrimitiveCreation.type = PendingPrimitiveType::Cone;
+        m_pendingPrimitiveCreation.firstSize = parameters.firstSize;
+        m_pendingPrimitiveCreation.secondSize = parameters.secondSize;
+        m_pendingPrimitiveCreation.thirdSize = parameters.thirdSize;
+        m_viewport->setPlacementPreviewShape(
+            BRepPrimAPI_MakeCone(parameters.firstSize, parameters.secondSize, parameters.thirdSize).Shape());
+        m_viewport->startPlacementPick();
+        statusBar()->showMessage(tr("Click in viewport to place the cone on Z=0 plane. Right click cancels."), 8000);
+        return;
+    }
+
+    if (!m_projectDocument->addConeOperation(parameters.firstSize,
+                                             parameters.secondSize,
+                                             parameters.thirdSize,
+                                             parameters.x,
+                                             parameters.y,
+                                             parameters.z))
+    {
+        QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
+        return;
+    }
+
+    refreshViewport();
+    statusBar()->showMessage(tr("Added Cone operation: R1=%1 R2=%2 H=%3 at (%4, %5, %6)")
+                                 .arg(parameters.firstSize)
+                                 .arg(parameters.secondSize)
+                                 .arg(parameters.thirdSize)
+                                 .arg(parameters.x)
+                                 .arg(parameters.y)
+                                 .arg(parameters.z),
+                             5000);
+}
+
+void MainWindow::addFilletOperation()
+{
+    const QVector<OperationEntry> sources = m_projectDocument->project().operations();
+    if (sources.isEmpty())
+    {
+        QMessageBox::information(this, tr("Add Fillet"), tr("Fillet requires at least one source operation."));
+        return;
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Create Fillet"));
+
+    auto *layout = new QFormLayout(&dialog);
+    auto *sourceComboBox = new QComboBox(&dialog);
+    for (const OperationEntry &op : sources)
+        sourceComboBox->addItem(QStringLiteral("#%1 %2").arg(op.id).arg(op.label), op.id);
+    sourceComboBox->setCurrentIndex(sourceComboBox->count() - 1);
+
+    auto *radiusSpinBox = new QDoubleSpinBox(&dialog);
+    radiusSpinBox->setDecimals(2);
+    radiusSpinBox->setRange(0.1, 1000.0);
+    radiusSpinBox->setSingleStep(1.0);
+    radiusSpinBox->setValue(5.0);
+
+    layout->addRow(tr("Source"), sourceComboBox);
+    layout->addRow(tr("Radius"), radiusSpinBox);
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addRow(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    const int sourceId = sourceComboBox->currentData().toInt();
+    const double radius = radiusSpinBox->value();
+
+    if (!m_projectDocument->addFilletOperation(sourceId, radius))
+    {
+        QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
+        return;
+    }
+
+    refreshViewport();
+    statusBar()->showMessage(tr("Added Fillet operation: R=%1 on #%2").arg(radius).arg(sourceId), 5000);
 }
 
 void MainWindow::addFuseOperation()
@@ -605,6 +698,22 @@ void MainWindow::createPrimitiveAtPickedPoint(const double x, const double y, co
                             .arg(y)
                             .arg(z);
     }
+    else if (pending.type == PendingPrimitiveType::Cone)
+    {
+        success = m_projectDocument->addConeOperation(pending.firstSize,
+                                                      pending.secondSize,
+                                                      pending.thirdSize,
+                                                      x,
+                                                      y,
+                                                      z);
+        statusMessage = tr("Added Cone operation: R1=%1 R2=%2 H=%3 at (%4, %5, %6)")
+                            .arg(pending.firstSize)
+                            .arg(pending.secondSize)
+                            .arg(pending.thirdSize)
+                            .arg(x)
+                            .arg(y)
+                            .arg(z);
+    }
     else
     {
         return;
@@ -636,6 +745,8 @@ void MainWindow::createActions()
 
     m_addBoxAction = new QAction(tr("Add Box"), this);
     m_addCylinderAction = new QAction(tr("Add Cylinder"), this);
+    m_addConeAction = new QAction(tr("Add Cone"), this);
+    m_addFilletAction = new QAction(tr("Add Fillet"), this);
     m_addFuseAction = new QAction(tr("Add Fuse"), this);
     m_addCutAction = new QAction(tr("Add Cut"), this);
 
@@ -650,6 +761,8 @@ void MainWindow::createActions()
     connect(m_newProjectAction, &QAction::triggered, this, &MainWindow::newProject);
     connect(m_addBoxAction, &QAction::triggered, this, &MainWindow::addBoxOperation);
     connect(m_addCylinderAction, &QAction::triggered, this, &MainWindow::addCylinderOperation);
+    connect(m_addConeAction, &QAction::triggered, this, &MainWindow::addConeOperation);
+    connect(m_addFilletAction, &QAction::triggered, this, &MainWindow::addFilletOperation);
     connect(m_addFuseAction, &QAction::triggered, this, &MainWindow::addFuseOperation);
     connect(m_addCutAction, &QAction::triggered, this, &MainWindow::addCutOperation);
     connect(m_importStepAction, &QAction::triggered, this, &MainWindow::importStep);
@@ -697,6 +810,9 @@ void MainWindow::createMenus()
     QMenu *modelMenu = menuBar()->addMenu(tr("Model"));
     modelMenu->addAction(m_addBoxAction);
     modelMenu->addAction(m_addCylinderAction);
+    modelMenu->addAction(m_addConeAction);
+    modelMenu->addSeparator();
+    modelMenu->addAction(m_addFilletAction);
     modelMenu->addAction(m_addFuseAction);
     modelMenu->addAction(m_addCutAction);
     menuBar()->addMenu(tr("Help"));
@@ -709,6 +825,8 @@ void MainWindow::createToolBar()
     mainToolBar->addAction(m_newProjectAction);
     mainToolBar->addAction(m_addBoxAction);
     mainToolBar->addAction(m_addCylinderAction);
+    mainToolBar->addAction(m_addConeAction);
+    mainToolBar->addAction(m_addFilletAction);
     mainToolBar->addAction(m_addFuseAction);
     mainToolBar->addAction(m_addCutAction);
     mainToolBar->addAction(m_importStepAction);

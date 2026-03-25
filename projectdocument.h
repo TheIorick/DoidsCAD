@@ -17,6 +17,8 @@ public:
     void setShape(const TopoDS_Shape &shape, const QString &description = QString());
     bool addBoxOperation(double length, double width, double height, double x, double y, double z);
     bool addCylinderOperation(double radius, double height, double x, double y, double z);
+    bool addConeOperation(double radius1, double radius2, double height, double x, double y, double z);
+    bool addFilletOperation(int sourceId, double radius);
     bool addFuseOperation(int leftId, int rightId);
     bool addCutOperation(int leftId, int rightId);
     bool setOperationParameter(int operationId, const QString &name, const QVariant &value);

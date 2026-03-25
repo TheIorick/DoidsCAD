@@ -20,7 +20,6 @@ void ProjectDocument::setShape(const TopoDS_Shape &shape, const QString &descrip
     m_project.clear();
     m_project.addOperation(QStringLiteral("import_step"),
                            QStringLiteral("Import STEP"),
-                           QStringLiteral("Done"),
                            {{QStringLiteral("Source"), description}});
     rebuild();
 }
@@ -35,7 +34,6 @@ bool ProjectDocument::addBoxOperation(const double length,
     const int operationNumber = m_project.operationCount() + 1;
     m_project.addOperation(QStringLiteral("box"),
                            QStringLiteral("Box %1").arg(operationNumber),
-                           QStringLiteral("Done"),
                            {{QStringLiteral("Length"), length},
                             {QStringLiteral("Width"), width},
                             {QStringLiteral("Height"), height},
@@ -58,7 +56,6 @@ bool ProjectDocument::addCylinderOperation(const double radius,
     const int operationNumber = m_project.operationCount() + 1;
     m_project.addOperation(QStringLiteral("cylinder"),
                            QStringLiteral("Cylinder %1").arg(operationNumber),
-                           QStringLiteral("Done"),
                            {{QStringLiteral("Radius"), radius},
                             {QStringLiteral("Height"), height},
                             {QStringLiteral("PlacementMode"), QStringLiteral("absolute")},
@@ -68,6 +65,45 @@ bool ProjectDocument::addCylinderOperation(const double radius,
                             {QStringLiteral("X"), x},
                             {QStringLiteral("Y"), y},
                             {QStringLiteral("Z"), z}});
+    return rebuild();
+}
+
+bool ProjectDocument::addConeOperation(const double radius1,
+                                       const double radius2,
+                                       const double height,
+                                       const double x,
+                                       const double y,
+                                       const double z)
+{
+    const int operationNumber = m_project.operationCount() + 1;
+    m_project.addOperation(QStringLiteral("cone"),
+                           QStringLiteral("Cone %1").arg(operationNumber),
+                           {{QStringLiteral("Radius1"), radius1},
+                            {QStringLiteral("Radius2"), radius2},
+                            {QStringLiteral("Height"), height},
+                            {QStringLiteral("PlacementMode"), QStringLiteral("absolute")},
+                            {QStringLiteral("ReferenceId"), -1},
+                            {QStringLiteral("ReferencePoint"), QStringLiteral("Center")},
+                            {QStringLiteral("SelfPoint"), QStringLiteral("Center")},
+                            {QStringLiteral("X"), x},
+                            {QStringLiteral("Y"), y},
+                            {QStringLiteral("Z"), z}});
+    return rebuild();
+}
+
+bool ProjectDocument::addFilletOperation(const int sourceId, const double radius)
+{
+    if (sourceId <= 0)
+    {
+        m_buildResult.errorMessage = QStringLiteral("Fillet requires a valid source operation.");
+        return false;
+    }
+
+    const int operationNumber = m_project.operationCount() + 1;
+    m_project.addOperation(QStringLiteral("fillet"),
+                           QStringLiteral("Fillet %1").arg(operationNumber),
+                           {{QStringLiteral("SourceId"), sourceId},
+                            {QStringLiteral("Radius"), radius}});
     return rebuild();
 }
 
@@ -88,7 +124,6 @@ bool ProjectDocument::addFuseOperation(const int leftId, const int rightId)
     const int operationNumber = m_project.operationCount() + 1;
     m_project.addOperation(QStringLiteral("fuse"),
                            QStringLiteral("Fuse %1").arg(operationNumber),
-                           QStringLiteral("Done"),
                            {{QStringLiteral("LeftId"), leftId},
                             {QStringLiteral("RightId"), rightId}});
     return rebuild();
@@ -111,7 +146,6 @@ bool ProjectDocument::addCutOperation(const int leftId, const int rightId)
     const int operationNumber = m_project.operationCount() + 1;
     m_project.addOperation(QStringLiteral("cut"),
                            QStringLiteral("Cut %1").arg(operationNumber),
-                           QStringLiteral("Done"),
                            {{QStringLiteral("LeftId"), leftId},
                             {QStringLiteral("RightId"), rightId}});
     return rebuild();
@@ -177,7 +211,6 @@ void ProjectDocument::initializeStartupProject()
     m_project.clear();
     m_project.addOperation(QStringLiteral("box"),
                            QStringLiteral("Startup Box"),
-                           QStringLiteral("Done"),
                            {{QStringLiteral("Length"), 120.0},
                             {QStringLiteral("Width"), 80.0},
                             {QStringLiteral("Height"), 60.0},

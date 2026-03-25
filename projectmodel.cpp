@@ -12,14 +12,12 @@ void ProjectModel::clear()
 
 int ProjectModel::addOperation(const QString &type,
                                const QString &label,
-                               const QString &state,
                                const QVector<OperationParameter> &parameters)
 {
     OperationEntry entry;
     entry.id = m_nextOperationId++;
     entry.type = type;
     entry.label = label;
-    entry.state = state;
     entry.parameters = parameters;
     m_operations.append(entry);
     return entry.id;

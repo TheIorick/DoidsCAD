@@ -16,7 +16,6 @@ struct OperationEntry
     int id = 0;
     QString type;
     QString label;
-    QString state;
     QVector<OperationParameter> parameters;
 };
 
