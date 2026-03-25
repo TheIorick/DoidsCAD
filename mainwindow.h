@@ -25,32 +25,13 @@ private slots:
     void addFilletOperation();
     void addFuseOperation();
     void addCutOperation();
-    void showNotImplementedMessage();
     void importStep();
     void exportStep();
     void updateOperationParameter(int operationId, const QString &name, const QVariant &value);
     void showOperationDetails(int operationId);
     void updateSelectionDescription(const QString &description);
-    void finishViewportPlacement(double x, double y, double z);
-    void cancelViewportPlacement();
 
 private:
-    enum class PendingPrimitiveType
-    {
-        None,
-        Box,
-        Cylinder,
-        Cone
-    };
-
-    struct PendingPrimitiveCreation
-    {
-        PendingPrimitiveType type = PendingPrimitiveType::None;
-        double firstSize = 0.0;
-        double secondSize = 0.0;
-        double thirdSize = 0.0;
-    };
-
     void createActions();
     void createMenus();
     void createToolBar();
@@ -60,14 +41,12 @@ private:
     void refreshOperationTree();
     void selectOperation(int operationId);
     void refreshDisplayedShape();
-    void createPrimitiveAtPickedPoint(double x, double y, double z);
 
     CadViewport *m_viewport;
     OperationListDock *m_operationDock;
     ProjectDocument *m_projectDocument;
     PropertyEditorDock *m_propertyDock;
     int m_selectedOperationId;
-    PendingPrimitiveCreation m_pendingPrimitiveCreation;
 
     QAction *m_newProjectAction;
     QAction *m_importStepAction;

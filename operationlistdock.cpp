@@ -1,8 +1,43 @@
 #include "operationlistdock.h"
 
 #include <QHeaderView>
+#include <QMap>
 #include <QSignalBlocker>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
+
+namespace
+{
+// Returns the id of the logical parent operation, or -1 if root-level.
+int parentOperationId(const OperationEntry &op)
+{
+    if (op.type == QLatin1String("box")
+        || op.type == QLatin1String("cylinder")
+        || op.type == QLatin1String("cone"))
+    {
+        QString placementMode;
+        int referenceId = -1;
+        for (const OperationParameter &p : op.parameters)
+        {
+            if (p.name == QLatin1String("PlacementMode"))
+                placementMode = p.value.toString();
+            else if (p.name == QLatin1String("ReferenceId"))
+                referenceId = p.value.toInt();
+        }
+        if (placementMode == QLatin1String("relative") && referenceId > 0)
+            return referenceId;
+    }
+    else if (op.type == QLatin1String("fillet"))
+    {
+        for (const OperationParameter &p : op.parameters)
+        {
+            if (p.name == QLatin1String("SourceId"))
+                return p.value.toInt();
+        }
+    }
+    return -1;
+}
+}
 
 OperationListDock::OperationListDock(QWidget *parent)
     : QDockWidget(tr("Operation Tree"), parent)
@@ -20,26 +55,35 @@ OperationListDock::OperationListDock(QWidget *parent)
 
 void OperationListDock::setOperations(const QVector<OperationEntry> &operations)
 {
+    const QSignalBlocker blocker(m_treeWidget);
     m_treeWidget->clear();
 
-    auto *rootItem = new QTreeWidgetItem(m_treeWidget, {tr("Project"), tr("Ready")});
-    for (const OperationEntry &operation : operations)
-    {
-        const QString title = tr("#%1 %2").arg(operation.id).arg(operation.label);
-        auto *operationItem = new QTreeWidgetItem(rootItem, {title, operation.type});
-        operationItem->setData(0, Qt::UserRole, operation.id);
+    auto *rootItem = new QTreeWidgetItem(m_treeWidget, {tr("Project"), QString()});
 
-        for (const OperationParameter &parameter : operation.parameters)
-        {
-            new QTreeWidgetItem(operationItem,
-                                {tr("%1 = %2")
-                                     .arg(parameter.name)
-                                     .arg(parameter.value.toString()),
-                                 tr("Parameter")});
-        }
+    // Build item map first
+    QMap<int, QTreeWidgetItem *> itemMap;
+    for (const OperationEntry &op : operations)
+    {
+        const QString title = QStringLiteral("#%1  %2").arg(op.id).arg(op.label);
+        auto *item = new QTreeWidgetItem({title, op.type});
+        item->setData(0, Qt::UserRole, op.id);
+        itemMap[op.id] = item;
     }
 
-    rootItem->setExpanded(true);
+    // Attach each item to its parent (or root)
+    for (const OperationEntry &op : operations)
+    {
+        QTreeWidgetItem *item = itemMap.value(op.id);
+        if (item == nullptr)
+            continue;
+
+        const int pid = parentOperationId(op);
+        QTreeWidgetItem *parentItem = (pid > 0) ? itemMap.value(pid, rootItem) : rootItem;
+        parentItem->addChild(item);
+    }
+
+    // Expand everything
+    m_treeWidget->expandAll();
 }
 
 void OperationListDock::selectOperation(const int operationId)
@@ -53,27 +97,19 @@ void OperationListDock::selectOperation(const int operationId)
         return;
     }
 
-    for (int i = 0; i < m_treeWidget->topLevelItemCount(); ++i)
+    // Search all items recursively via QTreeWidgetItemIterator
+    QTreeWidgetItemIterator it(m_treeWidget);
+    while (*it)
     {
-        QTreeWidgetItem *rootItem = m_treeWidget->topLevelItem(i);
-        if (rootItem == nullptr)
-            continue;
-
-        for (int j = 0; j < rootItem->childCount(); ++j)
+        bool ok = false;
+        const int itemId = (*it)->data(0, Qt::UserRole).toInt(&ok);
+        if (ok && itemId == operationId)
         {
-            QTreeWidgetItem *operationItem = rootItem->child(j);
-            if (operationItem == nullptr)
-                continue;
-
-            bool ok = false;
-            const int itemOperationId = operationItem->data(0, Qt::UserRole).toInt(&ok);
-            if (ok && itemOperationId == operationId)
-            {
-                m_treeWidget->setCurrentItem(operationItem);
-                operationItem->setSelected(true);
-                return;
-            }
+            m_treeWidget->setCurrentItem(*it);
+            (*it)->setSelected(true);
+            return;
         }
+        ++it;
     }
 }
 

@@ -2,6 +2,21 @@
 
 #include "projectbuilder.h"
 
+namespace
+{
+const QString &resolvedPlacementMode(const QString &mode)
+{
+    static const QString absolute = QStringLiteral("absolute");
+    return mode.isEmpty() ? absolute : mode;
+}
+
+const QString &resolvedPoint(const QString &point)
+{
+    static const QString center = QStringLiteral("Center");
+    return point.isEmpty() ? center : point;
+}
+}
+
 ProjectDocument::ProjectDocument()
 {
     reset();
@@ -29,7 +44,11 @@ bool ProjectDocument::addBoxOperation(const double length,
                                       const double height,
                                       const double x,
                                       const double y,
-                                      const double z)
+                                      const double z,
+                                      const QString &placementMode,
+                                      const int referenceId,
+                                      const QString &referencePoint,
+                                      const QString &selfPoint)
 {
     const int operationNumber = m_project.operationCount() + 1;
     m_project.addOperation(QStringLiteral("box"),
@@ -37,10 +56,10 @@ bool ProjectDocument::addBoxOperation(const double length,
                            {{QStringLiteral("Length"), length},
                             {QStringLiteral("Width"), width},
                             {QStringLiteral("Height"), height},
-                            {QStringLiteral("PlacementMode"), QStringLiteral("absolute")},
-                            {QStringLiteral("ReferenceId"), -1},
-                            {QStringLiteral("ReferencePoint"), QStringLiteral("Center")},
-                            {QStringLiteral("SelfPoint"), QStringLiteral("Center")},
+                            {QStringLiteral("PlacementMode"), resolvedPlacementMode(placementMode)},
+                            {QStringLiteral("ReferenceId"), referenceId},
+                            {QStringLiteral("ReferencePoint"), resolvedPoint(referencePoint)},
+                            {QStringLiteral("SelfPoint"), resolvedPoint(selfPoint)},
                             {QStringLiteral("X"), x},
                             {QStringLiteral("Y"), y},
                             {QStringLiteral("Z"), z}});
@@ -51,17 +70,21 @@ bool ProjectDocument::addCylinderOperation(const double radius,
                                            const double height,
                                            const double x,
                                            const double y,
-                                           const double z)
+                                           const double z,
+                                           const QString &placementMode,
+                                           const int referenceId,
+                                           const QString &referencePoint,
+                                           const QString &selfPoint)
 {
     const int operationNumber = m_project.operationCount() + 1;
     m_project.addOperation(QStringLiteral("cylinder"),
                            QStringLiteral("Cylinder %1").arg(operationNumber),
                            {{QStringLiteral("Radius"), radius},
                             {QStringLiteral("Height"), height},
-                            {QStringLiteral("PlacementMode"), QStringLiteral("absolute")},
-                            {QStringLiteral("ReferenceId"), -1},
-                            {QStringLiteral("ReferencePoint"), QStringLiteral("Center")},
-                            {QStringLiteral("SelfPoint"), QStringLiteral("Center")},
+                            {QStringLiteral("PlacementMode"), resolvedPlacementMode(placementMode)},
+                            {QStringLiteral("ReferenceId"), referenceId},
+                            {QStringLiteral("ReferencePoint"), resolvedPoint(referencePoint)},
+                            {QStringLiteral("SelfPoint"), resolvedPoint(selfPoint)},
                             {QStringLiteral("X"), x},
                             {QStringLiteral("Y"), y},
                             {QStringLiteral("Z"), z}});
@@ -73,7 +96,11 @@ bool ProjectDocument::addConeOperation(const double radius1,
                                        const double height,
                                        const double x,
                                        const double y,
-                                       const double z)
+                                       const double z,
+                                       const QString &placementMode,
+                                       const int referenceId,
+                                       const QString &referencePoint,
+                                       const QString &selfPoint)
 {
     const int operationNumber = m_project.operationCount() + 1;
     m_project.addOperation(QStringLiteral("cone"),
@@ -81,10 +108,10 @@ bool ProjectDocument::addConeOperation(const double radius1,
                            {{QStringLiteral("Radius1"), radius1},
                             {QStringLiteral("Radius2"), radius2},
                             {QStringLiteral("Height"), height},
-                            {QStringLiteral("PlacementMode"), QStringLiteral("absolute")},
-                            {QStringLiteral("ReferenceId"), -1},
-                            {QStringLiteral("ReferencePoint"), QStringLiteral("Center")},
-                            {QStringLiteral("SelfPoint"), QStringLiteral("Center")},
+                            {QStringLiteral("PlacementMode"), resolvedPlacementMode(placementMode)},
+                            {QStringLiteral("ReferenceId"), referenceId},
+                            {QStringLiteral("ReferencePoint"), resolvedPoint(referencePoint)},
+                            {QStringLiteral("SelfPoint"), resolvedPoint(selfPoint)},
                             {QStringLiteral("X"), x},
                             {QStringLiteral("Y"), y},
                             {QStringLiteral("Z"), z}});
@@ -183,6 +210,13 @@ QString ProjectDocument::description() const
 QString ProjectDocument::lastBuildError() const
 {
     return m_buildResult.errorMessage;
+}
+
+int ProjectDocument::lastOperationId() const
+{
+    if (m_project.operations().isEmpty())
+        return -1;
+    return m_project.operations().constLast().id;
 }
 
 TopoDS_Shape ProjectDocument::shapeForOperation(const int id) const

@@ -6,127 +6,27 @@
 #include "propertyeditordock.h"
 #include "stepexchange.h"
 
-#include <BRepPrimAPI_MakeBox.hxx>
-#include <BRepPrimAPI_MakeCone.hxx>
-#include <BRepPrimAPI_MakeCylinder.hxx>
 #include <QAction>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QKeySequence>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
-#include <QDoubleSpinBox>
 #include <QStatusBar>
 #include <QToolBar>
 
 namespace
 {
-struct PrimitiveParameters
-{
-    double firstSize = 0.0;
-    double secondSize = 0.0;
-    double thirdSize = 0.0;
-    double x = 0.0;
-    double y = 0.0;
-    double z = 0.0;
-    bool pickInViewport = false;
-};
-
 struct BooleanOperationParameters
 {
     int leftId = -1;
     int rightId = -1;
 };
-
-QDoubleSpinBox *createSizeSpinBox(const double value)
-{
-    auto *spinBox = new QDoubleSpinBox();
-    spinBox->setDecimals(2);
-    spinBox->setRange(0.1, 1000000.0);
-    spinBox->setSingleStep(10.0);
-    spinBox->setValue(value);
-    return spinBox;
-}
-
-QDoubleSpinBox *createPositionSpinBox(const double value)
-{
-    auto *spinBox = new QDoubleSpinBox();
-    spinBox->setDecimals(2);
-    spinBox->setRange(-1000000.0, 1000000.0);
-    spinBox->setSingleStep(10.0);
-    spinBox->setValue(value);
-    return spinBox;
-}
-
-bool promptPrimitiveParameters(QWidget *parent,
-                               const QString &title,
-                               const QString &firstLabel,
-                               const QString &secondLabel,
-                               const QString &thirdLabel,
-                               PrimitiveParameters *parameters)
-{
-    if (parameters == nullptr)
-        return false;
-
-    QDialog dialog(parent);
-    dialog.setWindowTitle(title);
-
-    auto *layout = new QFormLayout(&dialog);
-    auto *firstSpinBox = createSizeSpinBox(parameters->firstSize);
-    auto *secondSpinBox = createSizeSpinBox(parameters->secondSize);
-    auto *thirdSpinBox = thirdLabel.isEmpty() ? nullptr : createSizeSpinBox(parameters->thirdSize);
-    auto *xSpinBox = createPositionSpinBox(parameters->x);
-    auto *ySpinBox = createPositionSpinBox(parameters->y);
-    auto *zSpinBox = createPositionSpinBox(parameters->z);
-    auto *placementModeComboBox = new QComboBox(&dialog);
-    placementModeComboBox->addItem(QObject::tr("By Coordinates"), false);
-    placementModeComboBox->addItem(QObject::tr("Pick In Viewport"), true);
-    placementModeComboBox->setCurrentIndex(parameters->pickInViewport ? 1 : 0);
-
-    layout->addRow(firstLabel, firstSpinBox);
-    layout->addRow(secondLabel, secondSpinBox);
-    if (thirdSpinBox != nullptr)
-        layout->addRow(thirdLabel, thirdSpinBox);
-    layout->addRow(QObject::tr("Placement"), placementModeComboBox);
-    layout->addRow(QObject::tr("X"), xSpinBox);
-    layout->addRow(QObject::tr("Y"), ySpinBox);
-    layout->addRow(QObject::tr("Z"), zSpinBox);
-
-    const auto updateCoordinateState = [=]() {
-        const bool pickInViewport = placementModeComboBox->currentData().toBool();
-        xSpinBox->setEnabled(!pickInViewport);
-        ySpinBox->setEnabled(!pickInViewport);
-        zSpinBox->setEnabled(!pickInViewport);
-    };
-    QObject::connect(placementModeComboBox, &QComboBox::currentIndexChanged, &dialog, updateCoordinateState);
-    updateCoordinateState();
-
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    layout->addRow(buttons);
-    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-
-    if (dialog.exec() != QDialog::Accepted)
-        return false;
-
-    parameters->firstSize = firstSpinBox->value();
-    parameters->secondSize = secondSpinBox->value();
-    parameters->thirdSize = thirdSpinBox != nullptr ? thirdSpinBox->value() : 0.0;
-    parameters->x = xSpinBox->value();
-    parameters->y = ySpinBox->value();
-    parameters->z = zSpinBox->value();
-    parameters->pickInViewport = placementModeComboBox->currentData().toBool();
-    return true;
-}
-
-QVector<OperationEntry> availableBooleanSources(const ProjectModel &projectModel)
-{
-    return projectModel.operations();
-}
 
 bool promptBooleanParameters(QWidget *parent,
                              const QString &title,
@@ -205,7 +105,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     setCentralWidget(m_viewport);
     refreshViewport();
-    statusBar()->showMessage(tr("OpenCascade viewer is connected. Current document: %1").arg(m_projectDocument->description()));
+    statusBar()->showMessage(tr("Ready. Select an operation and add a new one to attach it automatically."));
 }
 
 MainWindow::~MainWindow()
@@ -215,181 +115,108 @@ MainWindow::~MainWindow()
 
 void MainWindow::newProject()
 {
+    m_selectedOperationId = -1;
     m_projectDocument->reset();
     refreshViewport();
-    statusBar()->showMessage(tr("Started a new project with the default startup solid."), 5000);
+    statusBar()->showMessage(tr("New project started."), 4000);
 }
 
 void MainWindow::addBoxOperation()
 {
-    const int index = m_projectDocument->project().operationCount();
-    PrimitiveParameters parameters;
-    parameters.firstSize = 120.0 + index * 20.0;
-    parameters.secondSize = 80.0 + index * 10.0;
-    parameters.thirdSize = 60.0 + index * 5.0;
-    parameters.x = index * 160.0;
+    const OperationEntry *reference = m_projectDocument->findOperation(m_selectedOperationId);
+    const QString mode = reference ? QStringLiteral("relative") : QStringLiteral("absolute");
+    const int refId = reference ? reference->id : -1;
 
-    if (!promptPrimitiveParameters(this,
-                                   tr("Create Box"),
-                                   tr("Length"),
-                                   tr("Width"),
-                                   tr("Height"),
-                                   &parameters))
-        return;
-
-    if (parameters.pickInViewport)
-    {
-        m_pendingPrimitiveCreation.type = PendingPrimitiveType::Box;
-        m_pendingPrimitiveCreation.firstSize = parameters.firstSize;
-        m_pendingPrimitiveCreation.secondSize = parameters.secondSize;
-        m_pendingPrimitiveCreation.thirdSize = parameters.thirdSize;
-        m_viewport->setPlacementPreviewShape(
-            BRepPrimAPI_MakeBox(parameters.firstSize, parameters.secondSize, parameters.thirdSize).Shape());
-        m_viewport->startPlacementPick();
-        statusBar()->showMessage(tr("Click in viewport to place the box on Z=0 plane. Right click cancels."), 8000);
-        return;
-    }
-
-    if (!m_projectDocument->addBoxOperation(parameters.firstSize,
-                                            parameters.secondSize,
-                                            parameters.thirdSize,
-                                            parameters.x,
-                                            parameters.y,
-                                            parameters.z))
+    if (!m_projectDocument->addBoxOperation(120.0, 80.0, 60.0,
+                                            0.0, 0.0, 0.0,
+                                            mode, refId,
+                                            QStringLiteral("Right"),
+                                            QStringLiteral("Left")))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
         return;
     }
 
+    const int newId = m_projectDocument->lastOperationId();
     refreshViewport();
-    statusBar()->showMessage(tr("Added Box operation: %1 x %2 x %3 at (%4, %5, %6)")
-                                 .arg(parameters.firstSize)
-                                 .arg(parameters.secondSize)
-                                 .arg(parameters.thirdSize)
-                                 .arg(parameters.x)
-                                 .arg(parameters.y)
-                                 .arg(parameters.z),
-                             5000);
+    selectOperation(newId);
+    statusBar()->showMessage(tr("Added Box%1").arg(
+        reference ? tr(" relative to #%1").arg(refId) : QString()), 4000);
 }
 
 void MainWindow::addCylinderOperation()
 {
-    const int index = m_projectDocument->project().operationCount();
-    PrimitiveParameters parameters;
-    parameters.firstSize = 40.0 + index * 5.0;
-    parameters.secondSize = 100.0 + index * 15.0;
-    parameters.x = index * 160.0;
+    const OperationEntry *reference = m_projectDocument->findOperation(m_selectedOperationId);
+    const QString mode = reference ? QStringLiteral("relative") : QStringLiteral("absolute");
+    const int refId = reference ? reference->id : -1;
 
-    if (!promptPrimitiveParameters(this,
-                                   tr("Create Cylinder"),
-                                   tr("Radius"),
-                                   tr("Height"),
-                                   QString(),
-                                   &parameters))
-        return;
-
-    if (parameters.pickInViewport)
-    {
-        m_pendingPrimitiveCreation.type = PendingPrimitiveType::Cylinder;
-        m_pendingPrimitiveCreation.firstSize = parameters.firstSize;
-        m_pendingPrimitiveCreation.secondSize = parameters.secondSize;
-        m_pendingPrimitiveCreation.thirdSize = 0.0;
-        m_viewport->setPlacementPreviewShape(
-            BRepPrimAPI_MakeCylinder(parameters.firstSize, parameters.secondSize).Shape());
-        m_viewport->startPlacementPick();
-        statusBar()->showMessage(tr("Click in viewport to place the cylinder on Z=0 plane. Right click cancels."), 8000);
-        return;
-    }
-
-    if (!m_projectDocument->addCylinderOperation(parameters.firstSize,
-                                                 parameters.secondSize,
-                                                 parameters.x,
-                                                 parameters.y,
-                                                 parameters.z))
+    if (!m_projectDocument->addCylinderOperation(40.0, 100.0,
+                                                  0.0, 0.0, 0.0,
+                                                  mode, refId,
+                                                  QStringLiteral("Right"),
+                                                  QStringLiteral("Left")))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
         return;
     }
 
+    const int newId = m_projectDocument->lastOperationId();
     refreshViewport();
-    statusBar()->showMessage(tr("Added Cylinder operation: R%1 H%2 at (%3, %4, %5)")
-                                 .arg(parameters.firstSize)
-                                 .arg(parameters.secondSize)
-                                 .arg(parameters.x)
-                                 .arg(parameters.y)
-                                 .arg(parameters.z),
-                             5000);
+    selectOperation(newId);
+    statusBar()->showMessage(tr("Added Cylinder%1").arg(
+        reference ? tr(" relative to #%1").arg(refId) : QString()), 4000);
 }
 
 void MainWindow::addConeOperation()
 {
-    const int index = m_projectDocument->project().operationCount();
-    PrimitiveParameters parameters;
-    parameters.firstSize = 40.0 + index * 5.0;
-    parameters.secondSize = 0.0;
-    parameters.thirdSize = 100.0 + index * 15.0;
-    parameters.x = index * 160.0;
+    const OperationEntry *reference = m_projectDocument->findOperation(m_selectedOperationId);
+    const QString mode = reference ? QStringLiteral("relative") : QStringLiteral("absolute");
+    const int refId = reference ? reference->id : -1;
 
-    if (!promptPrimitiveParameters(this,
-                                   tr("Create Cone"),
-                                   tr("Bottom Radius"),
-                                   tr("Top Radius"),
-                                   tr("Height"),
-                                   &parameters))
-        return;
-
-    if (parameters.pickInViewport)
-    {
-        m_pendingPrimitiveCreation.type = PendingPrimitiveType::Cone;
-        m_pendingPrimitiveCreation.firstSize = parameters.firstSize;
-        m_pendingPrimitiveCreation.secondSize = parameters.secondSize;
-        m_pendingPrimitiveCreation.thirdSize = parameters.thirdSize;
-        m_viewport->setPlacementPreviewShape(
-            BRepPrimAPI_MakeCone(parameters.firstSize, parameters.secondSize, parameters.thirdSize).Shape());
-        m_viewport->startPlacementPick();
-        statusBar()->showMessage(tr("Click in viewport to place the cone on Z=0 plane. Right click cancels."), 8000);
-        return;
-    }
-
-    if (!m_projectDocument->addConeOperation(parameters.firstSize,
-                                             parameters.secondSize,
-                                             parameters.thirdSize,
-                                             parameters.x,
-                                             parameters.y,
-                                             parameters.z))
+    if (!m_projectDocument->addConeOperation(40.0, 0.0, 80.0,
+                                              0.0, 0.0, 0.0,
+                                              mode, refId,
+                                              QStringLiteral("Right"),
+                                              QStringLiteral("Left")))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
         return;
     }
 
+    const int newId = m_projectDocument->lastOperationId();
     refreshViewport();
-    statusBar()->showMessage(tr("Added Cone operation: R1=%1 R2=%2 H=%3 at (%4, %5, %6)")
-                                 .arg(parameters.firstSize)
-                                 .arg(parameters.secondSize)
-                                 .arg(parameters.thirdSize)
-                                 .arg(parameters.x)
-                                 .arg(parameters.y)
-                                 .arg(parameters.z),
-                             5000);
+    selectOperation(newId);
+    statusBar()->showMessage(tr("Added Cone%1").arg(
+        reference ? tr(" relative to #%1").arg(refId) : QString()), 4000);
 }
 
 void MainWindow::addFilletOperation()
 {
-    const QVector<OperationEntry> sources = m_projectDocument->project().operations();
-    if (sources.isEmpty())
+    const QVector<OperationEntry> &operations = m_projectDocument->project().operations();
+    if (operations.isEmpty())
     {
         QMessageBox::information(this, tr("Add Fillet"), tr("Fillet requires at least one source operation."));
         return;
     }
 
+    // Prefer currently selected operation as source
+    int sourceId = -1;
+    if (m_projectDocument->findOperation(m_selectedOperationId) != nullptr)
+        sourceId = m_selectedOperationId;
+    else
+        sourceId = operations.constLast().id;
+
     QDialog dialog(this);
     dialog.setWindowTitle(tr("Create Fillet"));
 
     auto *layout = new QFormLayout(&dialog);
+
     auto *sourceComboBox = new QComboBox(&dialog);
-    for (const OperationEntry &op : sources)
+    for (const OperationEntry &op : operations)
         sourceComboBox->addItem(QStringLiteral("#%1 %2").arg(op.id).arg(op.label), op.id);
-    sourceComboBox->setCurrentIndex(sourceComboBox->count() - 1);
+
+    const int sourceIndex = sourceComboBox->findData(sourceId);
+    sourceComboBox->setCurrentIndex(sourceIndex >= 0 ? sourceIndex : sourceComboBox->count() - 1);
 
     auto *radiusSpinBox = new QDoubleSpinBox(&dialog);
     radiusSpinBox->setDecimals(2);
@@ -408,22 +235,24 @@ void MainWindow::addFilletOperation()
     if (dialog.exec() != QDialog::Accepted)
         return;
 
-    const int sourceId = sourceComboBox->currentData().toInt();
+    const int chosenSourceId = sourceComboBox->currentData().toInt();
     const double radius = radiusSpinBox->value();
 
-    if (!m_projectDocument->addFilletOperation(sourceId, radius))
+    if (!m_projectDocument->addFilletOperation(chosenSourceId, radius))
     {
         QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
         return;
     }
 
+    const int newId = m_projectDocument->lastOperationId();
     refreshViewport();
-    statusBar()->showMessage(tr("Added Fillet operation: R=%1 on #%2").arg(radius).arg(sourceId), 5000);
+    selectOperation(newId);
+    statusBar()->showMessage(tr("Added Fillet R=%1 on #%2").arg(radius).arg(chosenSourceId), 4000);
 }
 
 void MainWindow::addFuseOperation()
 {
-    const QVector<OperationEntry> sources = availableBooleanSources(m_projectDocument->project());
+    const QVector<OperationEntry> sources = m_projectDocument->project().operations();
     if (sources.size() < 2)
     {
         QMessageBox::information(this, tr("Add Fuse"), tr("Fuse requires at least two source operations."));
@@ -442,16 +271,15 @@ void MainWindow::addFuseOperation()
         return;
     }
 
+    const int newId = m_projectDocument->lastOperationId();
     refreshViewport();
-    statusBar()->showMessage(tr("Added Fuse operation for #%1 and #%2")
-                                 .arg(parameters.leftId)
-                                 .arg(parameters.rightId),
-                             5000);
+    selectOperation(newId);
+    statusBar()->showMessage(tr("Added Fuse #%1 + #%2").arg(parameters.leftId).arg(parameters.rightId), 4000);
 }
 
 void MainWindow::addCutOperation()
 {
-    const QVector<OperationEntry> sources = availableBooleanSources(m_projectDocument->project());
+    const QVector<OperationEntry> sources = m_projectDocument->project().operations();
     if (sources.size() < 2)
     {
         QMessageBox::information(this, tr("Add Cut"), tr("Cut requires at least two source operations."));
@@ -470,32 +298,16 @@ void MainWindow::addCutOperation()
         return;
     }
 
+    const int newId = m_projectDocument->lastOperationId();
     refreshViewport();
-    statusBar()->showMessage(tr("Added Cut operation for #%1 and #%2")
-                                 .arg(parameters.leftId)
-                                 .arg(parameters.rightId),
-                             5000);
-}
-
-void MainWindow::showNotImplementedMessage()
-{
-    const auto *action = qobject_cast<QAction *>(sender());
-    const QString actionName = action ? action->text() : tr("Action");
-
-    QMessageBox::information(
-        this,
-        tr("Planned Action"),
-        tr("%1 is part of the current implementation plan and will be connected in the next steps.")
-            .arg(actionName));
+    selectOperation(newId);
+    statusBar()->showMessage(tr("Added Cut #%1 - #%2").arg(parameters.leftId).arg(parameters.rightId), 4000);
 }
 
 void MainWindow::importStep()
 {
     const QString filePath = QFileDialog::getOpenFileName(
-        this,
-        tr("Import STEP"),
-        QString(),
-        tr("STEP Files (*.step *.stp)"));
+        this, tr("Import STEP"), QString(), tr("STEP Files (*.step *.stp)"));
 
     if (filePath.isEmpty())
         return;
@@ -508,6 +320,7 @@ void MainWindow::importStep()
         return;
     }
 
+    m_selectedOperationId = -1;
     m_projectDocument->setShape(importedShape, tr("Imported STEP"));
     refreshViewport();
     statusBar()->showMessage(tr("Imported STEP: %1").arg(filePath), 5000);
@@ -522,19 +335,16 @@ void MainWindow::exportStep()
     }
 
     const QString filePath = QFileDialog::getSaveFileName(
-        this,
-        tr("Export STEP"),
-        QString(),
-        tr("STEP Files (*.step *.stp)"));
+        this, tr("Export STEP"), QString(), tr("STEP Files (*.step *.stp)"));
 
     if (filePath.isEmpty())
         return;
 
     QString normalizedPath = filePath;
-    if (!normalizedPath.endsWith(".step", Qt::CaseInsensitive)
-        && !normalizedPath.endsWith(".stp", Qt::CaseInsensitive))
+    if (!normalizedPath.endsWith(QLatin1String(".step"), Qt::CaseInsensitive)
+        && !normalizedPath.endsWith(QLatin1String(".stp"), Qt::CaseInsensitive))
     {
-        normalizedPath += ".step";
+        normalizedPath += QStringLiteral(".step");
     }
 
     QString errorMessage;
@@ -553,17 +363,6 @@ void MainWindow::updateSelectionDescription(const QString &description)
     statusBar()->showMessage(tr("Selection: %1").arg(description), 3000);
 }
 
-void MainWindow::finishViewportPlacement(const double x, const double y, const double z)
-{
-    createPrimitiveAtPickedPoint(x, y, z);
-}
-
-void MainWindow::cancelViewportPlacement()
-{
-    m_pendingPrimitiveCreation = PendingPrimitiveCreation();
-    statusBar()->showMessage(tr("Viewport placement canceled."), 4000);
-}
-
 void MainWindow::showOperationDetails(const int operationId)
 {
     m_selectedOperationId = operationId;
@@ -572,7 +371,7 @@ void MainWindow::showOperationDetails(const int operationId)
                                          m_projectDocument->project().operations());
 
     if (operationId >= 0)
-        statusBar()->showMessage(tr("Operation #%1 selected").arg(operationId), 3000);
+        statusBar()->showMessage(tr("Operation #%1 selected — add a new primitive to attach it here.").arg(operationId), 4000);
 }
 
 void MainWindow::updateOperationParameter(const int operationId, const QString &name, const QVariant &value)
@@ -619,7 +418,7 @@ void MainWindow::updateOperationParameter(const int operationId, const QString &
 
     refreshViewport();
     selectOperation(operationId);
-    statusBar()->showMessage(tr("Updated %1 for operation #%2").arg(name).arg(operationId), 5000);
+    statusBar()->showMessage(tr("Updated %1 for operation #%2").arg(name).arg(operationId), 4000);
 }
 
 void MainWindow::refreshViewport()
@@ -659,74 +458,6 @@ void MainWindow::refreshDisplayedShape()
         m_viewport->setHighlightedShape(TopoDS_Shape());
         m_viewport->setDisplayedShapeSelected(false);
     }
-}
-
-void MainWindow::createPrimitiveAtPickedPoint(const double x, const double y, const double z)
-{
-    const PendingPrimitiveCreation pending = m_pendingPrimitiveCreation;
-    m_pendingPrimitiveCreation = PendingPrimitiveCreation();
-
-    bool success = false;
-    QString statusMessage;
-    if (pending.type == PendingPrimitiveType::Box)
-    {
-        success = m_projectDocument->addBoxOperation(pending.firstSize,
-                                                     pending.secondSize,
-                                                     pending.thirdSize,
-                                                     x,
-                                                     y,
-                                                     z);
-        statusMessage = tr("Added Box operation: %1 x %2 x %3 at (%4, %5, %6)")
-                            .arg(pending.firstSize)
-                            .arg(pending.secondSize)
-                            .arg(pending.thirdSize)
-                            .arg(x)
-                            .arg(y)
-                            .arg(z);
-    }
-    else if (pending.type == PendingPrimitiveType::Cylinder)
-    {
-        success = m_projectDocument->addCylinderOperation(pending.firstSize,
-                                                          pending.secondSize,
-                                                          x,
-                                                          y,
-                                                          z);
-        statusMessage = tr("Added Cylinder operation: R%1 H%2 at (%3, %4, %5)")
-                            .arg(pending.firstSize)
-                            .arg(pending.secondSize)
-                            .arg(x)
-                            .arg(y)
-                            .arg(z);
-    }
-    else if (pending.type == PendingPrimitiveType::Cone)
-    {
-        success = m_projectDocument->addConeOperation(pending.firstSize,
-                                                      pending.secondSize,
-                                                      pending.thirdSize,
-                                                      x,
-                                                      y,
-                                                      z);
-        statusMessage = tr("Added Cone operation: R1=%1 R2=%2 H=%3 at (%4, %5, %6)")
-                            .arg(pending.firstSize)
-                            .arg(pending.secondSize)
-                            .arg(pending.thirdSize)
-                            .arg(x)
-                            .arg(y)
-                            .arg(z);
-    }
-    else
-    {
-        return;
-    }
-
-    if (!success)
-    {
-        QMessageBox::critical(this, tr("Rebuild Failed"), m_projectDocument->lastBuildError());
-        return;
-    }
-
-    refreshViewport();
-    statusBar()->showMessage(statusMessage, 5000);
 }
 
 void MainWindow::createActions()
@@ -775,8 +506,6 @@ void MainWindow::createActions()
     connect(m_rightViewAction, &QAction::triggered, m_viewport, &CadViewport::setRightView);
     connect(m_isometricViewAction, &QAction::triggered, m_viewport, &CadViewport::setIsometricView);
     connect(m_viewport, &CadViewport::selectionDescriptionChanged, this, &MainWindow::updateSelectionDescription);
-    connect(m_viewport, &CadViewport::placementPointPicked, this, &MainWindow::finishViewportPlacement);
-    connect(m_viewport, &CadViewport::placementCanceled, this, &MainWindow::cancelViewportPlacement);
     connect(m_operationDock, &OperationListDock::operationSelected, this, &MainWindow::showOperationDetails);
     connect(m_propertyDock,
             &PropertyEditorDock::operationParameterEdited,
@@ -823,12 +552,14 @@ void MainWindow::createToolBar()
     QToolBar *mainToolBar = addToolBar(tr("Main Toolbar"));
     mainToolBar->setMovable(false);
     mainToolBar->addAction(m_newProjectAction);
+    mainToolBar->addSeparator();
     mainToolBar->addAction(m_addBoxAction);
     mainToolBar->addAction(m_addCylinderAction);
     mainToolBar->addAction(m_addConeAction);
     mainToolBar->addAction(m_addFilletAction);
     mainToolBar->addAction(m_addFuseAction);
     mainToolBar->addAction(m_addCutAction);
+    mainToolBar->addSeparator();
     mainToolBar->addAction(m_importStepAction);
     mainToolBar->addAction(m_exportStepAction);
     mainToolBar->addSeparator();
