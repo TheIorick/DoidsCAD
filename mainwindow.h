@@ -30,6 +30,7 @@ private slots:
     void updateOperationParameter(int operationId, const QString &name, const QVariant &value);
     void showOperationDetails(int operationId);
     void updateSelectionDescription(const QString &description);
+    void changeLanguage(const QString &lang);
 
 private:
     void createActions();

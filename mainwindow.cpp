@@ -7,6 +7,7 @@
 #include "stepexchange.h"
 
 #include <QAction>
+#include <QActionGroup>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -17,6 +18,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QSettings>
 #include <QStatusBar>
 #include <QToolBar>
 
@@ -598,13 +600,34 @@ void MainWindow::createMenus()
     modelMenu->addAction(m_addFuseAction);
     modelMenu->addAction(m_addCutAction);
     menuBar()->addMenu(tr("Help"));
+
+    QMenu *languageMenu = menuBar()->addMenu(tr("Language"));
+    auto *langGroup = new QActionGroup(this);
+    langGroup->setExclusive(true);
+
+    QAction *enAction = languageMenu->addAction(QStringLiteral("English"));
+    enAction->setCheckable(true);
+    enAction->setData(QStringLiteral("en"));
+    langGroup->addAction(enAction);
+
+    QAction *ruAction = languageMenu->addAction(QStringLiteral("Русский"));
+    ruAction->setCheckable(true);
+    ruAction->setData(QStringLiteral("ru"));
+    langGroup->addAction(ruAction);
+
+    const QString currentLang = QSettings().value(QStringLiteral("language"), QStringLiteral("en")).toString();
+    (currentLang == QStringLiteral("ru") ? ruAction : enAction)->setChecked(true);
+
+    connect(langGroup, &QActionGroup::triggered, this, [this](QAction *action) {
+        changeLanguage(action->data().toString());
+    });
 }
 
 void MainWindow::createToolBar()
 {
     QToolBar *mainToolBar = addToolBar(tr("Main Toolbar"));
     mainToolBar->setMovable(false);
-    mainToolBar->setToolTipsVisible(true);
+
     mainToolBar->addAction(m_newProjectAction);
     mainToolBar->addSeparator();
     mainToolBar->addAction(m_addBoxAction);
@@ -631,6 +654,17 @@ void MainWindow::createDocks()
 {
     addDockWidget(Qt::LeftDockWidgetArea, m_operationDock);
     addDockWidget(Qt::RightDockWidgetArea, m_propertyDock);
+}
+
+void MainWindow::changeLanguage(const QString &lang)
+{
+    QSettings settings;
+    if (settings.value(QStringLiteral("language"), QStringLiteral("en")).toString() == lang)
+        return;
+    settings.setValue(QStringLiteral("language"), lang);
+    QMessageBox::information(this,
+                             tr("Language Changed"),
+                             tr("The language will be applied after restarting the application."));
 }
 
 void MainWindow::configureWindow()

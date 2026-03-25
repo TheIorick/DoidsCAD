@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt${QT_VERSION_MAJOR} OPTIONAL_COMPONENTS LinguistTools)
 
 # OpenCascade is connected in the same style as educad:
 # CMAKE_PREFIX_PATH or OpenCASCADE_DIR must point to the installed package.
@@ -106,4 +107,19 @@ install(TARGETS DoidsCAD
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(DoidsCAD)
+endif()
+
+if(Qt${QT_VERSION_MAJOR}LinguistTools_FOUND)
+    set(TS_FILES translations/doids_ru.ts)
+    if(QT_VERSION_MAJOR GREATER_EQUAL 6)
+        qt6_add_translation(QM_FILES ${TS_FILES})
+    else()
+        qt5_add_translation(QM_FILES ${TS_FILES})
+    endif()
+    add_custom_target(DoidsCAD_translations ALL DEPENDS ${QM_FILES})
+    add_dependencies(DoidsCAD DoidsCAD_translations)
+    add_custom_command(TARGET DoidsCAD POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${QM_FILES} "$<TARGET_FILE_DIR:DoidsCAD>/"
+    )
 endif()
