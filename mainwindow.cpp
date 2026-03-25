@@ -464,30 +464,83 @@ void MainWindow::createActions()
 {
     m_newProjectAction = new QAction(tr("New Project"), this);
     m_newProjectAction->setShortcut(QKeySequence::New);
+    m_newProjectAction->setToolTip(tr("<b>New Project</b> (Ctrl+N)<br>Reset to a default startup box."));
 
     m_importStepAction = new QAction(tr("Import STEP..."), this);
     m_importStepAction->setShortcut(tr("Ctrl+I"));
+    m_importStepAction->setToolTip(tr("<b>Import STEP</b> (Ctrl+I)<br>Load an external .step / .stp file into the scene."));
 
     m_exportStepAction = new QAction(tr("Export STEP..."), this);
     m_exportStepAction->setShortcut(tr("Ctrl+E"));
+    m_exportStepAction->setToolTip(tr("<b>Export STEP</b> (Ctrl+E)<br>Save the current model to a .step file."));
 
     m_exitAction = new QAction(tr("Exit"), this);
     m_exitAction->setShortcut(QKeySequence::Quit);
 
     m_addBoxAction = new QAction(tr("Add Box"), this);
+    m_addBoxAction->setToolTip(tr(
+        "<b>Add Box</b><br>"
+        "Adds a rectangular box (120 × 80 × 60 mm).<br><br>"
+        "<i>Tip:</i> Select an existing operation first —<br>"
+        "the new box will attach to its right face automatically."));
+
     m_addCylinderAction = new QAction(tr("Add Cylinder"), this);
+    m_addCylinderAction->setToolTip(tr(
+        "<b>Add Cylinder</b><br>"
+        "Adds a cylinder (R=40, H=100 mm).<br><br>"
+        "<i>Tip:</i> Select an existing operation first —<br>"
+        "the cylinder attaches to its right face automatically.<br>"
+        "Ideal for building shaft segments."));
+
     m_addConeAction = new QAction(tr("Add Cone"), this);
+    m_addConeAction->setToolTip(tr(
+        "<b>Add Cone</b><br>"
+        "Adds a cone (R1=40, R2=0, H=80 mm).<br><br>"
+        "<i>Tip:</i> Select an existing operation first —<br>"
+        "the cone attaches to its right face automatically.<br>"
+        "Use for tapered shaft transitions."));
+
     m_addFilletAction = new QAction(tr("Add Fillet"), this);
+    m_addFilletAction->setToolTip(tr(
+        "<b>Add Fillet</b><br>"
+        "Rounds all edges of a source operation.<br><br>"
+        "<i>Tip:</i> Select the operation to fillet first —<br>"
+        "it will be pre-selected in the dialog."));
+
     m_addFuseAction = new QAction(tr("Add Fuse"), this);
+    m_addFuseAction->setToolTip(tr(
+        "<b>Add Fuse (Boolean Union)</b><br>"
+        "Merges two operations into a single solid.<br><br>"
+        "Choose Left and Right operands in the dialog.<br>"
+        "Requires at least two existing operations."));
+
     m_addCutAction = new QAction(tr("Add Cut"), this);
+    m_addCutAction->setToolTip(tr(
+        "<b>Add Cut (Boolean Subtraction)</b><br>"
+        "Subtracts the Right operand from the Left.<br><br>"
+        "Choose Left (base) and Right (tool) in the dialog.<br>"
+        "Requires at least two existing operations."));
 
     m_fitViewAction = new QAction(tr("Fit View"), this);
+    m_fitViewAction->setToolTip(tr("<b>Fit View</b><br>Zoom to fit the entire model in the viewport."));
+
     m_wireframeAction = new QAction(tr("Wireframe"), this);
+    m_wireframeAction->setToolTip(tr("<b>Wireframe</b><br>Display model as edges only."));
+
     m_shadedAction = new QAction(tr("Shaded"), this);
+    m_shadedAction->setToolTip(tr("<b>Shaded</b><br>Display model as a solid shaded surface."));
+
     m_frontViewAction = new QAction(tr("Front"), this);
+    m_frontViewAction->setToolTip(tr("<b>Front View</b><br>Look at the model from the front (−Y direction)."));
+
     m_topViewAction = new QAction(tr("Top"), this);
+    m_topViewAction->setToolTip(tr("<b>Top View</b><br>Look at the model from above (+Z direction)."));
+
     m_rightViewAction = new QAction(tr("Right"), this);
+    m_rightViewAction->setToolTip(tr("<b>Right View</b><br>Look at the model from the right (+X direction)."));
+
     m_isometricViewAction = new QAction(tr("Isometric"), this);
+    m_isometricViewAction->setToolTip(tr("<b>Isometric View</b><br>Standard isometric perspective."));
 
     connect(m_newProjectAction, &QAction::triggered, this, &MainWindow::newProject);
     connect(m_addBoxAction, &QAction::triggered, this, &MainWindow::addBoxOperation);
@@ -551,6 +604,7 @@ void MainWindow::createToolBar()
 {
     QToolBar *mainToolBar = addToolBar(tr("Main Toolbar"));
     mainToolBar->setMovable(false);
+    mainToolBar->setToolTipsVisible(true);
     mainToolBar->addAction(m_newProjectAction);
     mainToolBar->addSeparator();
     mainToolBar->addAction(m_addBoxAction);
